@@ -5,13 +5,17 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserService } from './user.service';
+import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
+@ApiTags('Users')
+@ApiBearerAuth(SWAGGER_BEARER)
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UserController {

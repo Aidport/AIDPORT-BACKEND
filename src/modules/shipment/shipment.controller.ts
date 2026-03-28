@@ -8,7 +8,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ShipmentService } from './shipment.service';
+import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { GetRatesDto } from './dto/get-rates.dto';
@@ -20,6 +22,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { ShipmentStatus } from './entities/shipment.entity';
 import { Role } from '../../common/decorators/roles.decorator';
 
+@ApiTags('Shipments')
+@ApiBearerAuth(SWAGGER_BEARER)
 @Controller('shipments')
 @UseGuards(JwtAuthGuard)
 export class ShipmentController {

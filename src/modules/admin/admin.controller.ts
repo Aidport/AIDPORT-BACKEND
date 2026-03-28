@@ -8,7 +8,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -30,6 +32,8 @@ import {
   UpdateQuoteStatusDto,
 } from './dto/update-agent-status.dto';
 
+@ApiTags('Admin')
+@ApiBearerAuth(SWAGGER_BEARER)
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.Admin)

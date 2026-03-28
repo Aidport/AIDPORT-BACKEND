@@ -7,11 +7,19 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { v2 as cloudinary } from 'cloudinary';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { FileValidationPipe } from '../../common/pipes/file-validation.pipe';
+import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 
 const folder = process.env.CLOUDINARY_FOLDER || 'aidport';
 
@@ -24,10 +32,27 @@ const storage = new CloudinaryStorage({
   } as Record<string, unknown>,
 });
 
+@ApiTags('Upload')
+@ApiBearerAuth(SWAGGER_BEARER)
 @Controller('upload')
 @UseGuards(JwtAuthGuard)
 export class UploadController {
   @Post('single')
+  @ApiOperation({
+    summary: 'Upload a single file to Cloudinary',
+    description:
+      'Multipart field name: `file`. Max 10MB. Images/video via Multer + CloudinaryStorage.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'File to upload' },
+      },
+    },
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       storage,
@@ -50,6 +75,24 @@ export class UploadController {
   }
 
   @Post('multiple')
+  @ApiOperation({
+    summary: 'Upload up to 10 files to Cloudinary',
+    description: 'Multipart field name: `files` (array). Max 10MB per file.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['files'],
+      properties: {
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Multiple files',
+        },
+      },
+    },
+  })
   @UseInterceptors(
     FilesInterceptor('files', 10, {
       storage,
