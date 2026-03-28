@@ -1,0 +1,534 @@
+{
+  "info": {
+    "name": "Aidport API",
+    "description": "Aidport NestJS API - User, Agent, Admin dashboards, settings, shipments, uploads",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "shipmentId", "value": "" },
+    { "key": "quoteId", "value": "" },
+    { "key": "userId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"status\": \"ok\",\n  \"service\": \"aidport\"\n}"
+          }]
+        },
+        {
+          "name": "Health Status",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/health" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"status\": \"ok\",\n  \"timestamp\": \"2025-03-11T12:00:00.000Z\"\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign Up (User)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/signup" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439011\",\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"role\": \"user\"\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+          }]
+        },
+        {
+          "name": "Sign Up (Agent)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/signup/agent" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"agent\"\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+          }]
+        },
+        {
+          "name": "Sign Up (Admin)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/signup/admin" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439013\",\n    \"name\": \"Admin User\",\n    \"email\": \"admin@example.com\",\n    \"role\": \"admin\"\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+          }]
+        },
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/login" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439011\",\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"role\": \"user\"\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+          }]
+        },
+        {
+          "name": "Forgot Password",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" }, "url": "{{baseUrl}}/auth/forgot-password" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"message\": \"If the email exists, a reset link has been sent.\"\n}"
+          }]
+        },
+        {
+          "name": "Reset Password",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"token\": \"reset-token-from-email\",\n  \"newPassword\": \"newpassword123\"\n}" }, "url": "{{baseUrl}}/auth/reset-password" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"message\": \"Password has been reset successfully\"\n}"
+          }]
+        },
+        {
+          "name": "Verify Email",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"ABC123\"\n}" }, "url": "{{baseUrl}}/auth/verify-email" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"message\": \"Email verified successfully\"\n}"
+          }]
+        },
+        {
+          "name": "Resend Verification",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" }, "url": "{{baseUrl}}/auth/resend-verification" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"message\": \"If the email exists, a verification code has been sent.\"\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Profile (Me)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/me" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439011\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"role\": \"user\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"123 Main St\",\n  \"city\": \"Lagos\",\n  \"state\": \"Lagos\",\n  \"zipCode\": \"100001\",\n  \"country\": \"Nigeria\",\n  \"avatarUrl\": \"https://res.cloudinary.com/xxx/avatar.jpg\",\n  \"settings\": {\n    \"emailNotifications\": true,\n    \"pushNotifications\": true,\n    \"shipmentUpdates\": true,\n    \"language\": \"en\",\n    \"timezone\": \"UTC\"\n  }\n}"
+          }]
+        },
+        {
+          "name": "Update Profile",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Updated\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"123 Main St\",\n  \"city\": \"Lagos\",\n  \"state\": \"Lagos\",\n  \"zipCode\": \"100001\",\n  \"country\": \"Nigeria\",\n  \"avatarUrl\": \"https://res.cloudinary.com/xxx/avatar.jpg\"\n}" }, "url": "{{baseUrl}}/users/me" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439011\",\n  \"name\": \"John Updated\",\n  \"email\": \"john@example.com\",\n  \"role\": \"user\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"123 Main St\",\n  \"city\": \"Lagos\",\n  \"state\": \"Lagos\",\n  \"zipCode\": \"100001\",\n  \"country\": \"Nigeria\",\n  \"avatarUrl\": \"https://res.cloudinary.com/xxx/avatar.jpg\"\n}"
+          }]
+        },
+        {
+          "name": "Update Settings",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"emailNotifications\": true,\n  \"pushNotifications\": true,\n  \"shipmentUpdates\": true,\n  \"language\": \"en\",\n  \"timezone\": \"UTC\"\n}" }, "url": "{{baseUrl}}/users/me/settings" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439011\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"role\": \"user\",\n  \"settings\": {\n    \"emailNotifications\": true,\n    \"pushNotifications\": true,\n    \"shipmentUpdates\": true,\n    \"language\": \"en\",\n    \"timezone\": \"UTC\"\n  }\n}"
+          }]
+        },
+        {
+          "name": "Change Password",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"newpassword123\"\n}" }, "url": "{{baseUrl}}/users/me/password" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"message\": \"Password updated successfully\"\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "My Dashboard (role-based)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/me" },
+          "response": [{
+            "name": "200 OK (User)",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"totalShipments\": 5,\n  \"recentShipments\": [],\n  \"myShipments\": [],\n  \"byStatus\": {\n    \"pending\": 2,\n    \"delivered\": 3\n  }\n}"
+          }]
+        },
+        {
+          "name": "User Dashboard",
+          "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/user" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"totalShipments\": 5,\n  \"recentShipments\": [],\n  \"myShipments\": [],\n  \"byStatus\": {\n    \"pending\": 2,\n    \"delivered\": 3\n  }\n}"
+          }]
+        },
+        {
+          "name": "Agent Dashboard",
+          "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/agent" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"incomingCount\": 12,\n  \"myAcceptedCount\": 5,\n  \"deliveredCount\": 20,\n  \"inTransitCount\": 2,\n  \"acceptedCount\": 3,\n  \"recentIncoming\": [],\n  \"myAccepted\": [],\n  \"weeklyDelivered\": [\n    { \"date\": \"2025-03-11\", \"count\": 3 },\n    { \"date\": \"2025-03-10\", \"count\": 2 }\n  ]\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List Users",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/users?page=1&limit=10&role=user&search=&country=" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439011\",\n      \"name\": \"John Doe\",\n      \"email\": \"john@example.com\",\n      \"role\": \"user\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+          }]
+        },
+        {
+          "name": "Get User By Id",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/users/{{userId}}" }
+        },
+        {
+          "name": "List Agents",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/agents?page=1&limit=10&search=&category=&agentStatus=pending_review" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"email\": \"agent@example.com\",\n      \"role\": \"agent\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+          }]
+        },
+        {
+          "name": "List Shipments",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/shipments?page=1&limit=10&filter=all&search=&cargoType=" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"items\": [\n    {\n      \"_id\": \"507f1f77bcf86cd799439020\",\n      \"cargoName\": \"Medical Supplies\",\n      \"status\": \"pending\",\n      \"originCity\": \"Lagos\",\n      \"destinationCity\": \"Abuja\",\n      \"createdBy\": { \"name\": \"John Doe\", \"email\": \"john@example.com\" }\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+          }]
+        },
+        {
+          "name": "Analytics",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/analytics" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"overview\": {\n    \"totalShipments\": 120,\n    \"totalAgents\": 10,\n    \"totalShippers\": 50,\n    \"totalRevenue\": 500000,\n    \"pendingShipments\": 15,\n    \"deliveredShipments\": 80,\n    \"recentShipmentsCount\": 12\n  },\n  \"quoteActivity\": { \"pending\": 3, \"approved\": 10, \"rejected\": 1 },\n  \"shipmentsOverTime\": [{ \"month\": \"2025-01\", \"count\": 20 }],\n  \"newUserRegistrations\": [{ \"month\": \"2025-01\", \"count\": 5 }],\n  \"topTradeRoutes\": [{ \"origin\": \"Lagos\", \"destination\": \"Abuja\", \"count\": 30 }],\n  \"recentShipments\": [],\n  \"shipmentsByStatus\": [{ \"status\": \"pending\", \"count\": 15 }]\n}"
+          }]
+        },
+        {
+          "name": "Create User",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"new@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"user\"\n}" }, "url": "{{baseUrl}}/admin/users" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439014\",\n  \"name\": \"New User\",\n  \"email\": \"new@example.com\",\n  \"role\": \"user\"\n}"
+          }]
+        },
+        {
+          "name": "List Shippers",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/shippers?page=1&limit=10&search=&country=" }
+        },
+        {
+          "name": "Get Shipper",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/shippers/{{userId}}" }
+        },
+        {
+          "name": "Patch Shipper",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Name\",\n  \"country\": \"NG\"\n}" }, "url": "{{baseUrl}}/admin/shippers/{{userId}}" }
+        },
+        {
+          "name": "Get Agent",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/agents/{{userId}}" }
+        },
+        {
+          "name": "Patch Agent Status",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" }, "url": "{{baseUrl}}/admin/agents/{{userId}}/status" }
+        },
+        {
+          "name": "Patch Agent Profile",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"companyName\": \"Global Logistics Corp\",\n  \"trucksCount\": 12,\n  \"loadCapacity\": \"4.5T\",\n  \"category\": \"freight\"\n}" }, "url": "{{baseUrl}}/admin/agents/{{userId}}" }
+        },
+        {
+          "name": "Order History",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/order-history?page=1&limit=10" }
+        },
+        {
+          "name": "Patch Shipment (Admin)",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"delayed\",\n  \"amount\": 15000,\n  \"carrierName\": \"Aidport Standard\"\n}" }, "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}" }
+        },
+        {
+          "name": "Get Platform Settings",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/settings" }
+        },
+        {
+          "name": "Patch Platform Settings",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"platformName\": \"Aidport\",\n  \"adminEmail\": \"ops@example.com\",\n  \"notifyNewShipment\": true,\n  \"notifyNewSystemUpdates\": true,\n  \"notifyVerificationUpdate\": true\n}" }, "url": "{{baseUrl}}/admin/settings" }
+        },
+        {
+          "name": "List Quotes",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/quotes?page=1&limit=20&status=pending" }
+        },
+        {
+          "name": "Patch Quote Status",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" }, "url": "{{baseUrl}}/admin/quotes/{{quoteId}}/status" }
+        },
+        {
+          "name": "Notifications (placeholder)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/notifications" }
+        }
+      ]
+    },
+    {
+      "name": "Quotes",
+      "item": [
+        {
+          "name": "Create Quote Request",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('quoteId', pm.response.json()._id); }"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"London\",\n  \"weightKg\": 12.5,\n  \"notes\": \"Fragile\"\n}" }, "url": "{{baseUrl}}/quotes" }
+        }
+      ]
+    },
+    {
+      "name": "Shipments",
+      "item": [
+        {
+          "name": "Create Shipment",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('shipmentId', pm.response.json()._id); }"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"events\": [{\n    \"status\": \"created\",\n    \"description\": \"Shipment created\",\n    \"location\": \"Lagos → Abuja\",\n    \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n  }],\n  \"preferredPickupDate\": \"2025-03-15T00:00:00.000Z\",\n  \"urgency\": true,\n  \"status\": \"pending\",\n  \"imageUrls\": [],\n  \"createdAt\": \"2025-03-11T12:00:00.000Z\",\n  \"updatedAt\": \"2025-03-11T12:00:00.000Z\"\n}"
+          }]
+        },
+        {
+          "name": "Get Rates",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"weightKg\": 2.5,\n  \"currency\": \"NGN\"\n}" }, "url": "{{baseUrl}}/shipments/rates" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"rates\": [\n    {\n      \"rate_id\": \"standard\",\n      \"amount\": 1000,\n      \"currency\": \"NGN\",\n      \"carrier_name\": \"Aidport Standard\",\n      \"carrier_slug\": \"aidport-standard\",\n      \"delivery_time\": \"Within 3-5 days\",\n      \"pickup_time\": \"Within 24 hours\"\n    },\n    {\n      \"rate_id\": \"express\",\n      \"amount\": 1500,\n      \"currency\": \"NGN\",\n      \"carrier_name\": \"Aidport Express\",\n      \"carrier_slug\": \"aidport-express\",\n      \"delivery_time\": \"Within 1-2 days\",\n      \"pickup_time\": \"Within 12 hours\"\n    }\n  ]\n}"
+          }]
+        },
+        {
+          "name": "Track Shipment",
+          "request": { "method": "GET", "url": "{{baseUrl}}/shipments/{{shipmentId}}/track" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"{{shipmentId}}\",\n  \"status\": \"in_transit\",\n  \"trackingNumber\": null,\n  \"trackingUrl\": null,\n  \"events\": [\n    { \"status\": \"created\", \"description\": \"Shipment created\", \"location\": \"Lagos → Abuja\", \"createdAt\": \"2025-03-11T12:00:00.000Z\" },\n    { \"status\": \"accepted\", \"description\": \"Shipment accepted by agent\", \"createdAt\": \"2025-03-11T13:00:00.000Z\" }\n  ],\n  \"addressFrom\": { \"line1\": \"1121 Allen Avenue\", \"city\": \"Lagos\", \"state\": \"Lagos\", \"country\": \"NG\", \"name\": \"John Doe\", \"phone\": \"+2348012345678\" },\n  \"addressTo\": { \"line1\": \"45 Independence Avenue\", \"city\": \"Abuja\", \"state\": \"FCT\", \"country\": \"NG\", \"name\": \"Jane Smith\", \"phone\": \"+2348098765432\" },\n  \"carrierName\": null,\n  \"deliveredAt\": null\n}"
+          }]
+        },
+        {
+          "name": "List Shipments",
+          "request": { "method": "GET", "url": "{{baseUrl}}/shipments?page=1&limit=10" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"items\": [\n    {\n      \"_id\": \"507f1f77bcf86cd799439020\",\n      \"cargoName\": \"Medical Supplies\",\n      \"status\": \"pending\",\n      \"originCity\": \"Lagos\",\n      \"destinationCity\": \"Abuja\",\n      \"createdBy\": { \"name\": \"John Doe\", \"email\": \"john@example.com\" }\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+          }]
+        },
+        {
+          "name": "List Incoming (Agent)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/shipments/incoming?page=1&limit=10" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"items\": [\n    {\n      \"_id\": \"507f1f77bcf86cd799439020\",\n      \"cargoName\": \"Medical Supplies\",\n      \"status\": \"pending\",\n      \"urgency\": true,\n      \"createdBy\": { \"name\": \"John Doe\", \"email\": \"john@example.com\" }\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+          }]
+        },
+        {
+          "name": "Get Shipment by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/shipments/{{shipmentId}}" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"preferredPickupDate\": \"2025-03-15T00:00:00.000Z\",\n  \"urgency\": true,\n  \"status\": \"pending\",\n  \"imageUrls\": [],\n  \"createdBy\": { \"name\": \"John Doe\", \"email\": \"john@example.com\" },\n  \"acceptedBy\": null,\n  \"createdAt\": \"2025-03-11T12:00:00.000Z\",\n  \"updatedAt\": \"2025-03-11T12:00:00.000Z\"\n}"
+          }]
+        },
+        {
+          "name": "Update Shipment",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cargoName\": \"Updated Cargo\",\n  \"urgency\": false\n}" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"cargoName\": \"Updated Cargo\",\n  \"urgency\": false,\n  \"status\": \"pending\",\n  \"updatedAt\": \"2025-03-11T12:30:00.000Z\"\n}"
+          }]
+        },
+        {
+          "name": "Accept Shipment (Agent)",
+          "request": { "method": "POST", "url": "{{baseUrl}}/shipments/{{shipmentId}}/accept" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"status\": \"accepted\",\n  \"acceptedBy\": \"507f1f77bcf86cd799439012\",\n  \"updatedAt\": \"2025-03-11T12:30:00.000Z\"\n}"
+          }]
+        },
+        {
+          "name": "Decline Shipment (Agent)",
+          "request": { "method": "POST", "url": "{{baseUrl}}/shipments/{{shipmentId}}/decline" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"status\": \"declined\",\n  \"updatedAt\": \"2025-03-11T12:30:00.000Z\"\n}"
+          }]
+        },
+        {
+          "name": "Mark Delivered (Agent)",
+          "request": { "method": "POST", "url": "{{baseUrl}}/shipments/{{shipmentId}}/delivered" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"status\": \"delivered\",\n  \"deliveredAt\": \"2025-03-11T14:00:00.000Z\",\n  \"updatedAt\": \"2025-03-11T14:00:00.000Z\"\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "name": "Upload",
+      "item": [
+        {
+          "name": "Upload Single File",
+          "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] }, "url": "{{baseUrl}}/upload/single" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"filename\": \"aidport/abc123xyz\",\n  \"originalName\": \"photo.jpg\",\n  \"url\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/abc123xyz.jpg\",\n  \"path\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/abc123xyz.jpg\"\n}"
+          }]
+        },
+        {
+          "name": "Upload Multiple Files",
+          "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "files", "type": "file", "src": "" }] }, "url": "{{baseUrl}}/upload/multiple" },
+          "response": [{
+            "name": "201 Created",
+            "status": "Created",
+            "code": 201,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "[\n  {\n    \"filename\": \"aidport/abc123xyz\",\n    \"originalName\": \"photo1.jpg\",\n    \"url\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/abc123xyz.jpg\",\n    \"path\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/abc123xyz.jpg\"\n  },\n  {\n    \"filename\": \"aidport/def456uvw\",\n    \"originalName\": \"photo2.png\",\n    \"url\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/def456uvw.png\",\n    \"path\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/def456uvw.png\"\n  }\n]"
+          }]
+        }
+      ]
+    }
+  ]
+}

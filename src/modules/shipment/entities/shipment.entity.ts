@@ -1,0 +1,184 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+
+export type ShipmentDocument = Shipment & Document;
+
+export enum ShipmentCategory {
+  Medical = 'medical',
+  Food = 'food',
+  Clothing = 'clothing',
+  Equipment = 'equipment',
+  Other = 'other',
+}
+
+export enum ShipmentStatus {
+  Draft = 'draft',
+  Pending = 'pending',
+  Accepted = 'accepted',
+  Declined = 'declined',
+  InTransit = 'in_transit',
+  Delayed = 'delayed',
+  Delivered = 'delivered',
+  Cancelled = 'cancelled',
+}
+
+/** Address for pickup or delivery (TShip-style) */
+@Schema({ _id: false })
+export class ShipmentAddress {
+  @Prop({ required: true })
+  line1: string;
+
+  @Prop()
+  line2?: string;
+
+  @Prop({ required: true })
+  city: string;
+
+  @Prop({ required: true })
+  state: string;
+
+  @Prop({ required: true })
+  country: string;
+
+  @Prop()
+  zip?: string;
+
+  @Prop({ required: true })
+  name: string;
+
+  @Prop({ required: true })
+  phone: string;
+
+  @Prop()
+  email?: string;
+}
+
+/** Parcel item (TShip-style) */
+@Schema({ _id: false })
+export class ParcelItem {
+  @Prop({ required: true })
+  name: string;
+
+  @Prop()
+  description?: string;
+
+  @Prop({ default: 'parcel' })
+  type?: 'document' | 'parcel';
+
+  @Prop({ default: 'NGN' })
+  currency?: string;
+
+  @Prop({ default: 0 })
+  value?: number;
+
+  @Prop({ required: true })
+  quantity: number;
+
+  @Prop({ required: true })
+  weight: number;
+}
+
+/** Shipment status event (TShip-style) */
+@Schema({ _id: false })
+export class ShipmentEvent {
+  @Prop({ required: true })
+  status: string;
+
+  @Prop()
+  description?: string;
+
+  @Prop()
+  location?: string;
+
+  @Prop({ default: () => new Date() })
+  createdAt: Date;
+}
+
+const ShipmentAddressSchema = SchemaFactory.createForClass(ShipmentAddress);
+const ParcelItemSchema = SchemaFactory.createForClass(ParcelItem);
+const ShipmentEventSchema = SchemaFactory.createForClass(ShipmentEvent);
+
+@Schema({ timestamps: true })
+export class Shipment {
+  @Prop({ required: true })
+  cargoName: string;
+
+  @Prop()
+  cargoType?: string;
+
+  @Prop()
+  weight?: string;
+
+  @Prop()
+  dimensions?: string;
+
+  @Prop({ required: true, enum: ShipmentCategory })
+  category: ShipmentCategory;
+
+  @Prop({ required: true })
+  originCity: string;
+
+  @Prop({ required: true })
+  destinationCity: string;
+
+  /** Full pickup address (TShip-style) */
+  @Prop({ type: ShipmentAddressSchema })
+  addressFrom?: ShipmentAddress;
+
+  /** Full delivery address (TShip-style) */
+  @Prop({ type: ShipmentAddressSchema })
+  addressTo?: ShipmentAddress;
+
+  /** Parcel items (TShip-style) */
+  @Prop({ type: [ParcelItemSchema], default: [] })
+  parcelItems?: ParcelItem[];
+
+  @Prop()
+  preferredPickupDate?: Date;
+
+  @Prop({ default: false })
+  urgency: boolean;
+
+  @Prop({ default: ShipmentStatus.Pending, enum: ShipmentStatus })
+  status: ShipmentStatus;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  createdBy?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  acceptedBy?: Types.ObjectId;
+
+  @Prop()
+  deliveredAt?: Date;
+
+  @Prop({ type: [String], default: [] })
+  imageUrls?: string[];
+
+  /** Status events / tracking history (TShip-style) */
+  @Prop({ type: [ShipmentEventSchema], default: [] })
+  events?: ShipmentEvent[];
+
+  /** Tracking number from carrier */
+  @Prop()
+  trackingNumber?: string;
+
+  /** Tracking URL */
+  @Prop()
+  trackingUrl?: string;
+
+  /** Shipping cost / rate amount */
+  @Prop()
+  amount?: number;
+
+  @Prop({ default: 'NGN' })
+  currency?: string;
+
+  /** Carrier name */
+  @Prop()
+  carrierName?: string;
+
+  @Prop()
+  carrierSlug?: string;
+}
+
+export const ShipmentSchema = SchemaFactory.createForClass(Shipment);
