@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -52,6 +53,25 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     return this.toUserResponse(user);
+  }
+
+  /**
+   * Ensures the user is an agent allowed to operate (quotes, rates).
+   * Blocks pending review, declined, and inactive agent accounts.
+   */
+  async assertAgentCanOperate(agentId: string): Promise<void> {
+    const user = await this.userModel.findById(agentId).exec();
+    if (!user || user.role !== Role.Agent) {
+      throw new ForbiddenException('Only agents can perform this action');
+    }
+    const st = user.agentProfile?.status;
+    if (
+      st === AgentStatus.PendingReview ||
+      st === AgentStatus.Declined ||
+      st === AgentStatus.Inactive
+    ) {
+      throw new ForbiddenException('Agent account is not active');
+    }
   }
 
   async setPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<UserDocument> {

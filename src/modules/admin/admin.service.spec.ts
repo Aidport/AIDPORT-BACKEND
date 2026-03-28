@@ -69,9 +69,12 @@ describe('AdminService', () => {
         limit: 20,
       }),
       updateStatus: jest.fn(),
-      countByStatus: jest
-        .fn()
-        .mockResolvedValue({ pending: 0, approved: 0, rejected: 0 }),
+      countByStatus: jest.fn().mockResolvedValue({
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        accepted: 0,
+      }),
     };
     platformSettingsService = {
       getOrCreate: jest.fn().mockResolvedValue({ platformName: 'Aidport' }),
@@ -247,6 +250,7 @@ describe('AdminService', () => {
         pending: 0,
         approved: 0,
         rejected: 0,
+        accepted: 0,
       });
       expect(Array.isArray(result.shipmentsOverTime)).toBe(true);
       expect(Array.isArray(result.topTradeRoutes)).toBe(true);

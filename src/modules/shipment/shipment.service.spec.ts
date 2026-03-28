@@ -137,4 +137,19 @@ describe('ShipmentService', () => {
       });
     });
   });
+
+  describe('agentSetRates', () => {
+    it('should throw when agent is not assigned', async () => {
+      mockShipmentModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          acceptedBy: new Types.ObjectId(),
+          save: jest.fn(),
+        }),
+      });
+      (service as any).shipmentModel = mockShipmentModel;
+      await expect(
+        service.agentSetRates('s1', 'otherAgent', { amount: 100 }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
 });

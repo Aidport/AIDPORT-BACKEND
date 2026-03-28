@@ -37,6 +37,12 @@ export class AuthController {
   }
 
   @Public()
+  @Post('login/agent')
+  async loginAgent(@Body() loginDto: LoginDto) {
+    return this.authService.loginAgent(loginDto);
+  }
+
+  @Public()
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);

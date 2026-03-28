@@ -241,6 +241,45 @@ export class ShipmentService {
     return shipment.save();
   }
 
+  /** Assigned agent sets or updates commercial rates on the shipment */
+  async agentSetRates(
+    shipmentId: string,
+    agentId: string,
+    dto: {
+      amount: number;
+      currency?: string;
+      carrierName?: string;
+      carrierSlug?: string;
+      trackingNumber?: string;
+      trackingUrl?: string;
+    },
+  ) {
+    const shipment = await this.shipmentModel.findById(shipmentId).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    if (shipment.acceptedBy?.toString() !== agentId) {
+      throw new ForbiddenException('Only the assigned agent can add or update rates');
+    }
+    shipment.amount = dto.amount;
+    if (dto.currency !== undefined) shipment.currency = dto.currency;
+    if (dto.carrierName !== undefined) shipment.carrierName = dto.carrierName;
+    if (dto.carrierSlug !== undefined) shipment.carrierSlug = dto.carrierSlug;
+    if (dto.trackingNumber !== undefined) {
+      shipment.trackingNumber = dto.trackingNumber;
+    }
+    if (dto.trackingUrl !== undefined) shipment.trackingUrl = dto.trackingUrl;
+    this.addEvent(
+      shipment,
+      'rates_set',
+      'Agent set shipping rates',
+      shipment.originCity && shipment.destinationCity
+        ? `${shipment.originCity} → ${shipment.destinationCity}`
+        : undefined,
+    );
+    return shipment.save();
+  }
+
   async markDelivered(id: string, agentId: string) {
     const shipment = await this.shipmentModel.findById(id).exec();
     if (!shipment) {

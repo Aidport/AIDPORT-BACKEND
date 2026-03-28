@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
@@ -134,6 +138,31 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'test@example.com', password: 'wrong' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('loginAgent', () => {
+    it('should return token only for agent role', async () => {
+      const agentDoc = { ...mockUserDocument, role: Role.Agent };
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(agentDoc as any);
+      jest.spyOn(encryptionService, 'verify').mockResolvedValue(true);
+      jest.spyOn(userService, 'toUserResponse').mockReturnValue({
+        ...mockUser,
+        role: Role.Agent,
+      } as any);
+      const result = await service.loginAgent({
+        email: 'test@example.com',
+        password: 'correct',
+      });
+      expect(result.user.role).toBe(Role.Agent);
+    });
+
+    it('should reject non-agent accounts', async () => {
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(mockUserDocument as any);
+      jest.spyOn(encryptionService, 'verify').mockResolvedValue(true);
+      await expect(
+        service.loginAgent({ email: 'test@example.com', password: 'correct' }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

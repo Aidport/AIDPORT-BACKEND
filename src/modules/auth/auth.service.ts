@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
@@ -58,6 +59,15 @@ export class AuthService {
     const userResponse = this.userService.toUserResponse(user);
     const token = this.generateToken(userResponse.id, userResponse.role);
     return { user: userResponse, ...token };
+  }
+
+  /** Agent portal login — rejects non-agent accounts (strict RBAC). */
+  async loginAgent(loginDto: LoginDto) {
+    const result = await this.login(loginDto);
+    if (result.user.role !== Role.Agent) {
+      throw new ForbiddenException('Only agent accounts can sign in here');
+    }
+    return result;
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {

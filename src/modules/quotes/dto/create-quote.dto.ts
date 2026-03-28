@@ -1,7 +1,18 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateQuoteDto {
+  /** When set, quote is tied to this shipment (must belong to the shipper) */
+  @IsOptional()
+  @IsMongoId()
+  shipmentId?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(120)

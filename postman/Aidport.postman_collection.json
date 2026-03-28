@@ -101,6 +101,11 @@
           }]
         },
         {
+          "name": "Login Agent",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"agent@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/login/agent" }
+        },
+        {
           "name": "Forgot Password",
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" }, "url": "{{baseUrl}}/auth/forgot-password" },
           "response": [{
@@ -372,6 +377,31 @@
           "name": "Create Quote Request",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('quoteId', pm.response.json()._id); }"] } }],
           "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"London\",\n  \"weightKg\": 12.5,\n  \"notes\": \"Fragile\"\n}" }, "url": "{{baseUrl}}/quotes" }
+        },
+        {
+          "name": "Create Quote (with shipmentId)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"shipmentId\": \"{{shipmentId}}\",\n  \"weightKg\": 10\n}" }, "url": "{{baseUrl}}/quotes" }
+        }
+      ]
+    },
+    {
+      "name": "Agent",
+      "item": [
+        {
+          "name": "Me",
+          "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
+        },
+        {
+          "name": "List Open Quotes",
+          "request": { "method": "GET", "url": "{{baseUrl}}/agent/quotes?page=1&limit=10" }
+        },
+        {
+          "name": "Accept Quote",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"amount\": 15000\n}" }, "url": "{{baseUrl}}/agent/quotes/{{quoteId}}/accept" }
+        },
+        {
+          "name": "Set Shipment Rates",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"amount\": 18000,\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
         }
       ]
     },

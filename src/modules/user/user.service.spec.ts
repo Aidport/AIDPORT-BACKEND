@@ -1,10 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { User } from './entities/user.entity';
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
+import { AgentStatus } from './entities/agent-profile.schema';
 
 describe('UserService', () => {
   let service: UserService;
@@ -91,6 +96,39 @@ describe('UserService', () => {
         exec: jest.fn().mockResolvedValue(null),
       });
       await expect(service.findById('nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('assertAgentCanOperate', () => {
+    it('should throw when user is not an agent', async () => {
+      (service as any).userModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...mockUserDoc, role: Role.User }),
+      });
+      await expect(service.assertAgentCanOperate('userId123')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should throw when agent is pending review', async () => {
+      (service as any).userModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          role: Role.Agent,
+          agentProfile: { status: AgentStatus.PendingReview },
+        }),
+      });
+      await expect(service.assertAgentCanOperate('aid')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should resolve when agent is approved', async () => {
+      (service as any).userModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          role: Role.Agent,
+          agentProfile: { status: AgentStatus.Approved },
+        }),
+      });
+      await expect(service.assertAgentCanOperate('aid')).resolves.toBeUndefined();
     });
   });
 });

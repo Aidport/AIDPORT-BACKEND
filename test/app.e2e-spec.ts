@@ -156,6 +156,56 @@ describe('App (e2e)', () => {
       .expect(403);
   });
 
+  it('/auth/login/agent (POST) - rejects user role', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/signup')
+      .send({
+        name: 'Portal User',
+        email: 'portal-user@example.com',
+        password: 'password123',
+      })
+      .expect(201);
+
+    return request(app.getHttpServer())
+      .post('/auth/login/agent')
+      .send({ email: 'portal-user@example.com', password: 'password123' })
+      .expect(403);
+  });
+
+  it('/auth/login/agent (POST) - allows agent role', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/signup/agent')
+      .send({
+        name: 'Portal Agent',
+        email: 'portal-agent@example.com',
+        password: 'password123',
+      })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .post('/auth/login/agent')
+      .send({ email: 'portal-agent@example.com', password: 'password123' })
+      .expect(201);
+
+    expect(res.body.user.role).toBe('agent');
+  });
+
+  it('/agent/me (GET) - requires agent token', async () => {
+    const admin = await request(app.getHttpServer())
+      .post('/auth/signup/admin')
+      .send({
+        name: 'Admin Gate',
+        email: 'admin-gate@example.com',
+        password: 'password123',
+      })
+      .expect(201);
+
+    return request(app.getHttpServer())
+      .get('/agent/me')
+      .set('Authorization', `Bearer ${admin.body.accessToken}`)
+      .expect(403);
+  });
+
   it('/admin/analytics (GET) - allows admin', async () => {
     const admin = await request(app.getHttpServer())
       .post('/auth/signup/admin')
