@@ -2,7 +2,6 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
-import { CreateAgentDto } from '../user/dto/create-agent.dto';
 import { LoginDto } from '../user/dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -23,8 +22,8 @@ export class AuthController {
 
   @Public()
   @Post('signup/agent')
-  async signUpAgent(@Body() createAgentDto: CreateAgentDto) {
-    return this.authService.signUpAgent(createAgentDto);
+  async signUpAgent(@Body() createUserDto: CreateUserDto) {
+    return this.authService.signUpAgent(createUserDto);
   }
 
   @Public()

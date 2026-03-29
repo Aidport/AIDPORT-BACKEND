@@ -4,6 +4,7 @@ import { QuotesService } from '../quotes/quotes.service';
 import { ShipmentService } from '../shipment/shipment.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
+import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
 
 @Injectable()
 export class AgentService {
@@ -15,6 +16,10 @@ export class AgentService {
 
   getMe(agentId: string) {
     return this.userService.findById(agentId);
+  }
+
+  completeProfile(agentId: string, dto: CompleteAgentProfileDto) {
+    return this.userService.completeAgentProfile(agentId, dto);
   }
 
   async listOpenQuotes(agentId: string, pagination: PaginationDto) {

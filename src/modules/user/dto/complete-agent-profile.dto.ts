@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
-  IsEmail,
   IsEnum,
   IsString,
   MaxLength,
@@ -14,22 +13,8 @@ import {
   TransportMode,
 } from '../entities/agent-profile.schema';
 
-export class CreateAgentDto {
-  @ApiProperty({ example: 'Jane Doe', minLength: 2, maxLength: 100 })
-  @IsString()
-  @MinLength(2)
-  @MaxLength(100)
-  name: string;
-
-  @ApiProperty({ example: 'jane@example.com' })
-  @IsEmail()
-  email: string;
-
-  @ApiProperty({ example: 'password123', minLength: 8 })
-  @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  password: string;
-
+/** Step 2 of agent onboarding: sent with Bearer token after step 1 signup. */
+export class CompleteAgentProfileDto {
   @ApiProperty({ enum: AgentPricingPlan, example: AgentPricingPlan.Basic })
   @IsEnum(AgentPricingPlan)
   pricingPlan: AgentPricingPlan;

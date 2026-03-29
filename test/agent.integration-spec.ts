@@ -104,6 +104,15 @@ describe('Agent auth, quotes, rates (integration)', () => {
         name: 'Agent',
         email: 'agent-flow@example.com',
         password: 'password123',
+      })
+      .expect(201);
+    const agentId = agentRes.body.user.id;
+    const agentSignupToken = agentRes.body.accessToken;
+
+    await request(app.getHttpServer())
+      .patch('/agent/profile')
+      .set('Authorization', `Bearer ${agentSignupToken}`)
+      .send({
         pricingPlan: 'basic',
         companyName: 'Flow Logistics',
         dateEstablished: '2019-03-01',
@@ -111,8 +120,7 @@ describe('Agent auth, quotes, rates (integration)', () => {
         aboutCompany: 'Integration test agent company description.',
         transportModes: ['sea', 'land'],
       })
-      .expect(201);
-    const agentId = agentRes.body.user.id;
+      .expect(200);
 
     await request(app.getHttpServer())
       .patch(`/admin/agents/${agentId}/status`)

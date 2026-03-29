@@ -134,6 +134,14 @@ describe('Admin & quotes (integration)', () => {
         name: 'Agent Int',
         email: 'agent-int@example.com',
         password: 'password123',
+      })
+      .expect(201);
+    const agentId = agentRes.body.user.id;
+
+    await request(app.getHttpServer())
+      .patch('/agent/profile')
+      .set('Authorization', `Bearer ${agentRes.body.accessToken}`)
+      .send({
         pricingPlan: 'premium',
         companyName: 'Int Logistics',
         dateEstablished: '2017-05-20',
@@ -141,8 +149,7 @@ describe('Admin & quotes (integration)', () => {
         aboutCompany: 'Admin integration test agent company profile.',
         transportModes: ['multimodal', 'sea'],
       })
-      .expect(201);
-    const agentId = agentRes.body.user.id;
+      .expect(200);
 
     const agents = await request(app.getHttpServer())
       .get('/admin/agents?agentStatus=pending_review')

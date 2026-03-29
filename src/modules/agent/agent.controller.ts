@@ -18,6 +18,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AcceptAgentQuoteDto } from './dto/accept-agent-quote.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
+import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -30,6 +31,15 @@ export class AgentController {
   @Get('me')
   me(@CurrentUser('id') agentId: string) {
     return this.agentService.getMe(agentId);
+  }
+
+  /** Step 2: submit company profile after POST /auth/signup/agent (step 1). */
+  @Patch('profile')
+  completeProfile(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: CompleteAgentProfileDto,
+  ) {
+    return this.agentService.completeProfile(agentId, dto);
   }
 
   /** Admin-approved quotes awaiting an agent (linked to shipments) */

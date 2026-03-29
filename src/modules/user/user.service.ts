@@ -9,7 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
-import { CreateAgentDto } from './dto/create-agent.dto';
+import { CompleteAgentProfileDto } from './dto/complete-agent-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
@@ -45,31 +45,27 @@ export class UserService {
     return this.toUserResponse(saved);
   }
 
-  async createAgent(dto: CreateAgentDto) {
-    const existing = await this.userModel.findOne({ email: dto.email });
-    if (existing) {
-      throw new ConflictException('Email already registered');
+  /** Step 2: authenticated agent submits company profile details. */
+  async completeAgentProfile(agentId: string, dto: CompleteAgentProfileDto) {
+    const user = await this.userModel.findById(agentId).exec();
+    if (!user || user.role !== Role.Agent) {
+      throw new ForbiddenException('Only agents can complete this profile');
     }
-    const passwordHash = await this.encryptionService.hash(dto.password);
     const dateEstablished = new Date(dto.dateEstablished);
-    const user = new this.userModel({
-      name: dto.name,
-      email: dto.email.toLowerCase(),
-      passwordHash,
-      role: Role.Agent,
-      agentProfile: {
-        status: AgentStatus.PendingReview,
-        pricingPlan: dto.pricingPlan,
-        companyName: dto.companyName,
-        dateEstablished,
-        location: dto.location,
-        aboutCompany: dto.aboutCompany,
-        transportModes: dto.transportModes,
-        isVerified: false,
-      },
-    });
-    const saved = await user.save();
-    return this.toUserResponse(saved);
+    const prev = user.agentProfile ?? { status: AgentStatus.PendingReview };
+    user.agentProfile = {
+      ...prev,
+      status: prev.status ?? AgentStatus.PendingReview,
+      pricingPlan: dto.pricingPlan,
+      companyName: dto.companyName,
+      dateEstablished,
+      location: dto.location,
+      aboutCompany: dto.aboutCompany,
+      transportModes: dto.transportModes,
+      isVerified: prev.isVerified ?? false,
+    };
+    await user.save();
+    return this.toUserResponse(user);
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {

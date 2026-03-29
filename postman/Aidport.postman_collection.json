@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - User, Agent, Admin dashboards, settings, shipments, uploads",
+    "description": "Aidport NestJS API - Auth: agent signup is two steps (POST /auth/signup/agent with name/email/password, then PATCH /agent/profile with company details). Public GET /agents. User, Agent portal, Admin, shipments, quotes, uploads",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -9,7 +9,8 @@
     { "key": "accessToken", "value": "" },
     { "key": "shipmentId", "value": "" },
     { "key": "quoteId", "value": "" },
-    { "key": "userId", "value": "" }
+    { "key": "userId", "value": "" },
+    { "key": "agentId", "value": "" }
   ],
   "auth": {
     "type": "bearer",
@@ -46,6 +47,28 @@
       ]
     },
     {
+      "name": "Agents (Public)",
+      "item": [
+        {
+          "name": "List Agents (directory)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/agents?page=1&limit=10&search=&transportMode="
+          },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea\", \"land\"],\n        \"isVerified\": true,\n        \"status\": \"approved\"\n      },\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+          }]
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {
@@ -63,7 +86,8 @@
         },
         {
           "name": "Sign Up (Agent)",
-          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
+          "description": "Step 1: body is only name, email, password. Duplicate email → 409. On success, saves accessToken + agentId to collection variables. Next: Auth → Complete Agent Profile (step 2) or Agent → same.",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.accessToken) pm.collectionVariables.set('accessToken', j.accessToken);", "  if (j.user && j.user.id) pm.collectionVariables.set('agentId', j.user.id);", "}"], "type": "text/javascript" } }],
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/signup/agent" },
           "response": [{
             "name": "201 Created",
@@ -71,7 +95,7 @@
             "code": 201,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"agent\"\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"agent\",\n    \"agentProfile\": {\n      \"status\": \"pending_review\",\n      \"isVerified\": false\n    }\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
           }]
         },
         {
@@ -104,6 +128,24 @@
           "name": "Login Agent",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"agent@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/login/agent" }
+        },
+        {
+          "name": "Complete Agent Profile (step 2)",
+          "description": "Step 2: send pricingPlan, companyName, dateEstablished, location, aboutCompany, transportModes. Uses Bearer {{accessToken}} (from Sign Up Agent or Login Agent).",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"]\n}" },
+            "url": "{{baseUrl}}/agent/profile"
+          },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
+          }]
         },
         {
           "name": "Forgot Password",
@@ -330,15 +372,15 @@
         },
         {
           "name": "Get Agent",
-          "request": { "method": "GET", "url": "{{baseUrl}}/admin/agents/{{userId}}" }
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/agents/{{agentId}}" }
         },
         {
           "name": "Patch Agent Status",
-          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" }, "url": "{{baseUrl}}/admin/agents/{{userId}}/status" }
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" }, "url": "{{baseUrl}}/admin/agents/{{agentId}}/status" }
         },
         {
           "name": "Patch Agent Profile",
-          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"companyName\": \"Global Logistics Corp\",\n  \"trucksCount\": 12,\n  \"loadCapacity\": \"4.5T\",\n  \"category\": \"freight\"\n}" }, "url": "{{baseUrl}}/admin/agents/{{userId}}" }
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"premium\",\n  \"companyName\": \"Global Logistics Corp\",\n  \"dateEstablished\": \"2015-01-10\",\n  \"location\": \"Port Harcourt, Nigeria\",\n  \"aboutCompany\": \"Updated company description for the directory.\",\n  \"transportModes\": [\"sea\", \"multimodal\"],\n  \"isVerified\": true,\n  \"logisticsId\": \"LOG-001\",\n  \"trucksCount\": 12,\n  \"loadCapacity\": \"4.5T\",\n  \"category\": \"freight\",\n  \"documentUrls\": [\"https://res.cloudinary.com/xxx/doc1.pdf\"]\n}" }, "url": "{{baseUrl}}/admin/agents/{{agentId}}" }
         },
         {
           "name": "Order History",
@@ -387,6 +429,24 @@
     {
       "name": "Agent",
       "item": [
+        {
+          "name": "Complete Agent Profile (step 2)",
+          "description": "Same as Auth → Complete Agent Profile (step 2). PATCH company details after signup.",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"]\n}" },
+            "url": "{{baseUrl}}/agent/profile"
+          },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
+          }]
+        },
         {
           "name": "Me",
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
