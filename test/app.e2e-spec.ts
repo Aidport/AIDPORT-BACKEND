@@ -179,6 +179,12 @@ describe('App (e2e)', () => {
         name: 'Portal Agent',
         email: 'portal-agent@example.com',
         password: 'password123',
+        pricingPlan: 'basic',
+        companyName: 'Portal Co',
+        dateEstablished: '2020-01-01',
+        location: 'Test City',
+        aboutCompany: 'E2E agent company description text.',
+        transportModes: ['air'],
       })
       .expect(201);
 

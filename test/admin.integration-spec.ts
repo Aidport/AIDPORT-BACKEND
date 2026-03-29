@@ -134,6 +134,12 @@ describe('Admin & quotes (integration)', () => {
         name: 'Agent Int',
         email: 'agent-int@example.com',
         password: 'password123',
+        pricingPlan: 'premium',
+        companyName: 'Int Logistics',
+        dateEstablished: '2017-05-20',
+        location: 'Abuja, Nigeria',
+        aboutCompany: 'Admin integration test agent company profile.',
+        transportModes: ['multimodal', 'sea'],
       })
       .expect(201);
     const agentId = agentRes.body.user.id;

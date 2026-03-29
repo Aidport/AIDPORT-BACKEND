@@ -9,11 +9,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
-import { UserResponse } from './types/user-response.types';
+import { AgentProfileResponse, UserResponse } from './types/user-response.types';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentStatus } from './entities/agent-profile.schema';
 
@@ -38,6 +39,33 @@ export class UserService {
       ...(role === Role.Agent
         ? { agentProfile: { status: AgentStatus.PendingReview } }
         : {}),
+    });
+    const saved = await user.save();
+    return this.toUserResponse(saved);
+  }
+
+  async createAgent(dto: CreateAgentDto) {
+    const existing = await this.userModel.findOne({ email: dto.email });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+    const passwordHash = await this.encryptionService.hash(dto.password);
+    const dateEstablished = new Date(dto.dateEstablished);
+    const user = new this.userModel({
+      name: dto.name,
+      email: dto.email.toLowerCase(),
+      passwordHash,
+      role: Role.Agent,
+      agentProfile: {
+        status: AgentStatus.PendingReview,
+        pricingPlan: dto.pricingPlan,
+        companyName: dto.companyName,
+        dateEstablished,
+        location: dto.location,
+        aboutCompany: dto.aboutCompany,
+        transportModes: dto.transportModes,
+        isVerified: false,
+      },
     });
     const saved = await user.save();
     return this.toUserResponse(saved);
@@ -185,7 +213,7 @@ export class UserService {
   }
 
   toUserResponse(user: UserDocument): UserResponse {
-    return {
+    const base: UserResponse = {
       id: String(user._id ?? (user as { id?: string }).id),
       name: user.name,
       email: user.email,
@@ -199,5 +227,27 @@ export class UserService {
       avatarUrl: user.avatarUrl,
       settings: user.settings,
     };
+    if (user.role === Role.Agent && user.agentProfile) {
+      const ap = user.agentProfile;
+      const agentProfile: AgentProfileResponse = {
+        pricingPlan: ap.pricingPlan,
+        companyName: ap.companyName,
+        dateEstablished: ap.dateEstablished
+          ? new Date(ap.dateEstablished).toISOString()
+          : undefined,
+        location: ap.location,
+        aboutCompany: ap.aboutCompany,
+        transportModes: ap.transportModes,
+        isVerified: ap.isVerified,
+        logisticsId: ap.logisticsId,
+        trucksCount: ap.trucksCount,
+        loadCapacity: ap.loadCapacity,
+        status: ap.status,
+        documentUrls: ap.documentUrls,
+        category: ap.category,
+      };
+      return { ...base, agentProfile };
+    }
+    return base;
   }
 }

@@ -205,8 +205,19 @@ export class AdminService {
     const agent = await this.userModel.findOne({ _id: id, role: Role.Agent }).exec();
     if (!agent) throw new NotFoundException('Agent not found');
     agent.agentProfile = agent.agentProfile ?? {};
+    if (dto.pricingPlan !== undefined)
+      agent.agentProfile.pricingPlan = dto.pricingPlan;
     if (dto.companyName !== undefined)
       agent.agentProfile.companyName = dto.companyName;
+    if (dto.dateEstablished !== undefined)
+      agent.agentProfile.dateEstablished = new Date(dto.dateEstablished);
+    if (dto.location !== undefined) agent.agentProfile.location = dto.location;
+    if (dto.aboutCompany !== undefined)
+      agent.agentProfile.aboutCompany = dto.aboutCompany;
+    if (dto.transportModes !== undefined)
+      agent.agentProfile.transportModes = dto.transportModes;
+    if (dto.isVerified !== undefined)
+      agent.agentProfile.isVerified = dto.isVerified;
     if (dto.logisticsId !== undefined)
       agent.agentProfile.logisticsId = dto.logisticsId;
     if (dto.trucksCount !== undefined)

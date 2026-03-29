@@ -9,6 +9,7 @@ import { randomBytes } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
+import { CreateAgentDto } from '../user/dto/create-agent.dto';
 import { LoginDto } from '../user/dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -36,8 +37,10 @@ export class AuthService {
     return { user, ...token };
   }
 
-  async signUpAgent(createUserDto: CreateUserDto) {
-    return this.signUp(createUserDto, Role.Agent);
+  async signUpAgent(createAgentDto: CreateAgentDto) {
+    const user = (await this.userService.createAgent(createAgentDto)) as UserResponse;
+    const token = this.generateToken(user.id, user.role);
+    return { user, ...token };
   }
 
   async signUpAdmin(createUserDto: CreateUserDto) {

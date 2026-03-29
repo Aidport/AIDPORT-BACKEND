@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsIn,
   IsNumber,
@@ -8,7 +10,11 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { AgentStatus } from '../../user/entities/agent-profile.schema';
+import {
+  AgentPricingPlan,
+  AgentStatus,
+  TransportMode,
+} from '../../user/entities/agent-profile.schema';
 
 export class UpdateAgentStatusDto {
   @IsEnum(AgentStatus)
@@ -22,9 +28,36 @@ export class UpdateAgentStatusDto {
 
 export class AdminUpdateAgentPatchDto {
   @IsOptional()
+  @IsEnum(AgentPricingPlan)
+  pricingPlan?: AgentPricingPlan;
+
+  @IsOptional()
   @IsString()
   @MaxLength(200)
   companyName?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateEstablished?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  location?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  aboutCompany?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsEnum(TransportMode, { each: true })
+  transportModes?: TransportMode[];
+
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean;
 
   @IsOptional()
   @IsString()

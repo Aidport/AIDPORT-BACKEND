@@ -1,4 +1,25 @@
 import { Role } from '../../../common/decorators/roles.decorator';
+import {
+  AgentPricingPlan,
+  AgentStatus,
+  TransportMode,
+} from '../entities/agent-profile.schema';
+
+export interface AgentProfileResponse {
+  pricingPlan?: AgentPricingPlan;
+  companyName?: string;
+  dateEstablished?: string;
+  location?: string;
+  aboutCompany?: string;
+  transportModes?: TransportMode[];
+  isVerified?: boolean;
+  logisticsId?: string;
+  trucksCount?: number;
+  loadCapacity?: string;
+  status?: AgentStatus;
+  documentUrls?: string[];
+  category?: string;
+}
 
 export interface UserSettingsResponse {
   emailNotifications?: boolean;
@@ -21,4 +42,5 @@ export interface UserResponse {
   country?: string;
   avatarUrl?: string;
   settings?: UserSettingsResponse;
+  agentProfile?: AgentProfileResponse;
 }

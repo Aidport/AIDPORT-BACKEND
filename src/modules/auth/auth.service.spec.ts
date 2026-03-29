@@ -11,6 +11,11 @@ import { UserService } from '../user/user.service';
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { EmailService } from '../../integrations/email/email.service';
 import { Role } from '../../common/decorators/roles.decorator';
+import {
+  AgentPricingPlan,
+  TransportMode,
+} from '../user/entities/agent-profile.schema';
+import { CreateAgentDto } from '../user/dto/create-agent.dto';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -43,6 +48,7 @@ describe('AuthService', () => {
           provide: UserService,
           useValue: {
             create: jest.fn().mockResolvedValue(mockUser),
+            createAgent: jest.fn().mockResolvedValue(mockUser),
             findByEmail: jest.fn(),
             findByResetToken: jest.fn(),
             findByEmailAndVerificationOtp: jest.fn(),
@@ -107,10 +113,20 @@ describe('AuthService', () => {
 
   describe('signUpAgent', () => {
     it('should register an agent', async () => {
-      const dto = { name: 'Agent', email: 'agent@example.com', password: 'pass123' };
+      const dto: CreateAgentDto = {
+        name: 'Agent',
+        email: 'agent@example.com',
+        password: 'pass123',
+        pricingPlan: AgentPricingPlan.Basic,
+        companyName: 'Co',
+        dateEstablished: '2020-01-01',
+        location: 'Lagos',
+        aboutCompany: 'About us text here ok',
+        transportModes: [TransportMode.Sea],
+      };
       const result = await service.signUpAgent(dto);
       expect(result).toHaveProperty('user');
-      expect(userService.create).toHaveBeenCalledWith(dto, Role.Agent);
+      expect(userService.createAgent).toHaveBeenCalledWith(dto);
     });
   });
 

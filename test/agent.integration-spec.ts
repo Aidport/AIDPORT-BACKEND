@@ -104,6 +104,12 @@ describe('Agent auth, quotes, rates (integration)', () => {
         name: 'Agent',
         email: 'agent-flow@example.com',
         password: 'password123',
+        pricingPlan: 'basic',
+        companyName: 'Flow Logistics',
+        dateEstablished: '2019-03-01',
+        location: 'Lagos, Nigeria',
+        aboutCompany: 'Integration test agent company description.',
+        transportModes: ['sea', 'land'],
       })
       .expect(201);
     const agentId = agentRes.body.user.id;

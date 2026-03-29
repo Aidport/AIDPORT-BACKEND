@@ -8,10 +8,40 @@ export enum AgentStatus {
   Inactive = 'inactive',
 }
 
+export enum AgentPricingPlan {
+  Premium = 'premium',
+  Basic = 'basic',
+}
+
+export enum TransportMode {
+  Air = 'air',
+  Multimodal = 'multimodal',
+  Land = 'land',
+  Sea = 'sea',
+}
+
 @Schema({ _id: false })
 export class AgentProfile {
+  @Prop({ enum: AgentPricingPlan })
+  pricingPlan?: AgentPricingPlan;
+
   @Prop()
   companyName?: string;
+
+  @Prop()
+  dateEstablished?: Date;
+
+  @Prop()
+  location?: string;
+
+  @Prop()
+  aboutCompany?: string;
+
+  @Prop({ type: [String], enum: Object.values(TransportMode), default: [] })
+  transportModes?: TransportMode[];
+
+  @Prop({ default: false })
+  isVerified?: boolean;
 
   @Prop()
   logisticsId?: string;
