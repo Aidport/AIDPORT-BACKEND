@@ -34,6 +34,7 @@ export interface UserResponse {
   name: string;
   email: string;
   role: Role;
+  isEmailVerified?: boolean;
   phone?: string;
   address?: string;
   city?: string;

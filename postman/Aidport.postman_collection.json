@@ -63,7 +63,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea\", \"land\"],\n        \"isVerified\": true,\n        \"status\": \"approved\"\n      },\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea\", \"land\"],\n        \"isVerified\": false,\n        \"status\": \"approved\"\n      },\n      \"isEmailVerified\": true,\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
           }]
         }
       ]
@@ -95,7 +95,7 @@
             "code": 201,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"agent\",\n    \"agentProfile\": {\n      \"status\": \"pending_review\",\n      \"isVerified\": false\n    }\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"agent\",\n    \"isEmailVerified\": false,\n    \"agentProfile\": {\n      \"status\": \"pending_review\",\n      \"isVerified\": false\n    }\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
           }]
         },
         {
@@ -131,7 +131,7 @@
         },
         {
           "name": "Complete Agent Profile (step 2)",
-          "description": "Step 2: send pricingPlan, companyName, dateEstablished, location, aboutCompany, transportModes. Uses Bearer {{accessToken}} (from Sign Up Agent or Login Agent).",
+          "description": "Step 2: send pricingPlan, companyName, dateEstablished, location, aboutCompany, transportModes. Uses Bearer {{accessToken}}. Sets user isEmailVerified to true when successful.",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -144,7 +144,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
           }]
         },
         {
@@ -431,7 +431,7 @@
       "item": [
         {
           "name": "Complete Agent Profile (step 2)",
-          "description": "Same as Auth → Complete Agent Profile (step 2). PATCH company details after signup.",
+          "description": "Same as Auth → Complete Agent Profile (step 2). Sets user isEmailVerified to true.",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -444,7 +444,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
           }]
         },
         {

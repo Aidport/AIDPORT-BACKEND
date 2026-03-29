@@ -109,7 +109,7 @@ describe('Agent auth, quotes, rates (integration)', () => {
     const agentId = agentRes.body.user.id;
     const agentSignupToken = agentRes.body.accessToken;
 
-    await request(app.getHttpServer())
+    const profileRes = await request(app.getHttpServer())
       .patch('/agent/profile')
       .set('Authorization', `Bearer ${agentSignupToken}`)
       .send({
@@ -121,6 +121,7 @@ describe('Agent auth, quotes, rates (integration)', () => {
         transportModes: ['sea', 'land'],
       })
       .expect(200);
+    expect(profileRes.body.isEmailVerified).toBe(true);
 
     await request(app.getHttpServer())
       .patch(`/admin/agents/${agentId}/status`)

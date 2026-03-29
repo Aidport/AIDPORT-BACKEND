@@ -63,6 +63,12 @@ describe('App (e2e)', () => {
       });
   });
 
+  it('/agents (GET) - empty optional query params do not 400', () => {
+    return request(app.getHttpServer())
+      .get('/agents?page=1&limit=10&search=&transportMode=')
+      .expect(200);
+  });
+
   it('/auth/signup (POST) - user registration', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/signup')

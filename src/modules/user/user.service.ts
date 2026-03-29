@@ -64,6 +64,7 @@ export class UserService {
       transportModes: dto.transportModes,
       isVerified: prev.isVerified ?? false,
     };
+    user.isEmailVerified = true;
     await user.save();
     return this.toUserResponse(user);
   }
@@ -190,30 +191,54 @@ export class UserService {
     await this.userModel.findByIdAndUpdate(userId, { passwordHash: hash }).exec();
   }
 
-  /** Public listing: only agents with approved or active application status. */
+  /**
+   * Public directory: approved/active agents, or pending agents who finished
+   * onboarding (isEmailVerified + company profile). Excludes declined/inactive.
+   */
   async listPublicAgents(query: ListAgentsQueryDto) {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
-    const match: Record<string, unknown> = {
-      role: Role.Agent,
-      'agentProfile.status': { $in: [AgentStatus.Approved, AgentStatus.Active] },
-    };
+
+    const and: Record<string, unknown>[] = [
+      {
+        $or: [
+          {
+            'agentProfile.status': {
+              $in: [AgentStatus.Approved, AgentStatus.Active],
+            },
+          },
+          {
+            isEmailVerified: true,
+            'agentProfile.companyName': { $exists: true, $ne: '' },
+            'agentProfile.status': AgentStatus.PendingReview,
+          },
+        ],
+      },
+    ];
+
     if (query.transportMode) {
-      match['agentProfile.transportModes'] = query.transportMode;
+      and.push({ 'agentProfile.transportModes': query.transportMode });
     }
     if (query.search) {
       const r = new RegExp(escapeRegexForAgentList(query.search), 'i');
-      match.$or = [
-        { name: r },
-        { 'agentProfile.companyName': r },
-        { 'agentProfile.location': r },
-      ];
+      and.push({
+        $or: [
+          { name: r },
+          { 'agentProfile.companyName': r },
+          { 'agentProfile.location': r },
+        ],
+      });
     }
+
+    const match: Record<string, unknown> = {
+      role: Role.Agent,
+      $and: and,
+    };
 
     const [rawItems, total] = await Promise.all([
       this.userModel
         .find(match)
-        .select('name agentProfile createdAt')
+        .select('name agentProfile createdAt isEmailVerified')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -223,11 +248,12 @@ export class UserService {
     ]);
 
     const items = rawItems.map((doc) => {
-      const d = doc as typeof doc & { createdAt?: Date };
+      const d = doc as typeof doc & { createdAt?: Date; isEmailVerified?: boolean };
       return {
         id: String(doc._id),
         name: doc.name,
         agentProfile: doc.agentProfile,
+        isEmailVerified: d.isEmailVerified,
         createdAt: d.createdAt,
       };
     });
@@ -268,6 +294,7 @@ export class UserService {
       name: user.name,
       email: user.email,
       role: user.role,
+      isEmailVerified: user.isEmailVerified,
       phone: user.phone,
       address: user.address,
       city: user.city,
