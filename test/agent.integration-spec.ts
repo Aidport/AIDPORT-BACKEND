@@ -106,6 +106,7 @@ describe('Agent auth, quotes, rates (integration)', () => {
         password: 'password123',
       })
       .expect(201);
+    expect(agentRes.body.user.role).toBe('user');
     const agentId = agentRes.body.user.id;
     const agentSignupToken = agentRes.body.accessToken;
 

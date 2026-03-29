@@ -28,6 +28,7 @@ import {
   UpdateAgentStatusDto,
 } from './dto/update-agent-status.dto';
 import { UpdateShipmentDto } from '../shipment/dto/update-shipment.dto';
+import { AgentStatus } from '../user/entities/agent-profile.schema';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -132,11 +133,11 @@ export class AdminService {
     };
   }
 
-  /** Agents: search, category, application status */
+  /** Agents: applicants (user + agentProfile) and operators (role agent). */
   async getAgentsList(query: AdminAgentsQueryDto) {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
-    const match: Record<string, unknown> = { role: Role.Agent };
+    const match: Record<string, unknown> = { agentProfile: { $exists: true } };
     if (query.agentStatus) {
       match['agentProfile.status'] = query.agentStatus;
     }
@@ -182,7 +183,7 @@ export class AdminService {
 
   async getAgentById(id: string) {
     const agent = await this.userModel
-      .findOne({ _id: id, role: Role.Agent })
+      .findOne({ _id: id, agentProfile: { $exists: true } })
       .select(
         '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
       )
@@ -193,16 +194,26 @@ export class AdminService {
   }
 
   async updateAgentStatus(id: string, dto: UpdateAgentStatusDto) {
-    const agent = await this.userModel.findOne({ _id: id, role: Role.Agent }).exec();
+    const agent = await this.userModel
+      .findOne({ _id: id, agentProfile: { $exists: true } })
+      .exec();
     if (!agent) throw new NotFoundException('Agent not found');
     agent.agentProfile = agent.agentProfile ?? {};
     agent.agentProfile.status = dto.status;
+    if (
+      dto.status === AgentStatus.Approved ||
+      dto.status === AgentStatus.Active
+    ) {
+      agent.role = Role.Agent;
+    }
     await agent.save();
     return this.getAgentById(id);
   }
 
   async patchAgent(id: string, dto: AdminUpdateAgentPatchDto) {
-    const agent = await this.userModel.findOne({ _id: id, role: Role.Agent }).exec();
+    const agent = await this.userModel
+      .findOne({ _id: id, agentProfile: { $exists: true } })
+      .exec();
     if (!agent) throw new NotFoundException('Agent not found');
     agent.agentProfile = agent.agentProfile ?? {};
     if (dto.pricingPlan !== undefined)

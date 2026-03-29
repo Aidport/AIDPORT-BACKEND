@@ -37,7 +37,9 @@ export class AuthService {
   }
 
   async signUpAgent(createUserDto: CreateUserDto) {
-    const user = (await this.userService.create(createUserDto, Role.Agent)) as UserResponse;
+    const user = (await this.userService.create(createUserDto, Role.User, {
+      agentApplication: true,
+    })) as UserResponse;
     const token = this.generateToken(user.id, user.role);
     return { user, ...token };
   }

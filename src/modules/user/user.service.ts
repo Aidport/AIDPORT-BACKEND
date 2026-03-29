@@ -26,18 +26,24 @@ export class UserService {
     private encryptionService: EncryptionService,
   ) {}
 
-  async create(createUserDto: CreateUserDto, role: Role = Role.User) {
+  async create(
+    createUserDto: CreateUserDto,
+    role: Role = Role.User,
+    options?: { agentApplication?: boolean },
+  ) {
     const existing = await this.userModel.findOne({ email: createUserDto.email });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
     const passwordHash = await this.encryptionService.hash(createUserDto.password);
+    const withAgentProfile =
+      role === Role.Agent || options?.agentApplication === true;
     const user = new this.userModel({
       name: createUserDto.name,
       email: createUserDto.email.toLowerCase(),
       passwordHash,
       role,
-      ...(role === Role.Agent
+      ...(withAgentProfile
         ? { agentProfile: { status: AgentStatus.PendingReview } }
         : {}),
     });
@@ -45,11 +51,14 @@ export class UserService {
     return this.toUserResponse(saved);
   }
 
-  /** Step 2: authenticated agent submits company profile details. */
+  /** Applicants (role user) or agents may complete company profile. */
   async completeAgentProfile(agentId: string, dto: CompleteAgentProfileDto) {
     const user = await this.userModel.findById(agentId).exec();
-    if (!user || user.role !== Role.Agent) {
-      throw new ForbiddenException('Only agents can complete this profile');
+    if (
+      !user?.agentProfile ||
+      (user.role !== Role.Agent && user.role !== Role.User)
+    ) {
+      throw new ForbiddenException('Only agent applicants can complete this profile');
     }
     const dateEstablished = new Date(dto.dateEstablished);
     const prev = user.agentProfile ?? { status: AgentStatus.PendingReview };
@@ -67,6 +76,14 @@ export class UserService {
     user.isEmailVerified = true;
     await user.save();
     return this.toUserResponse(user);
+  }
+
+  async canAccessAgentPortal(userId: string): Promise<boolean> {
+    const u = await this.userModel.findById(userId).select('role agentProfile').lean();
+    if (!u?.agentProfile) {
+      return false;
+    }
+    return u.role === Role.Agent || u.role === Role.User;
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {

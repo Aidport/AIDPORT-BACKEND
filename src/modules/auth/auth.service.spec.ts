@@ -106,11 +106,13 @@ describe('AuthService', () => {
   });
 
   describe('signUpAgent', () => {
-    it('should register an agent (step 1: credentials only)', async () => {
+    it('should register an agent applicant (role user, agentProfile)', async () => {
       const dto = { name: 'Agent', email: 'agent@example.com', password: 'pass123' };
       const result = await service.signUpAgent(dto);
       expect(result).toHaveProperty('user');
-      expect(userService.create).toHaveBeenCalledWith(dto, Role.Agent);
+      expect(userService.create).toHaveBeenCalledWith(dto, Role.User, {
+        agentApplication: true,
+      });
     });
   });
 

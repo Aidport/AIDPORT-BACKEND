@@ -14,7 +14,10 @@ export class ValidationPipe implements PipeTransform<any> {
       return value;
     }
     const object = plainToInstance(metatype, value);
-    const errors = await validate(object);
+    const errors = await validate(object, {
+      whitelist: true,
+      forbidNonWhitelisted: false,
+    });
     if (errors.length > 0) {
       const messages = errors.flatMap((e) =>
         Object.values(e.constraints || {}),

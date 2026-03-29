@@ -95,7 +95,7 @@
             "code": 201,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"agent\",\n    \"isEmailVerified\": false,\n    \"agentProfile\": {\n      \"status\": \"pending_review\",\n      \"isVerified\": false\n    }\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
+            "body": "{\n  \"user\": {\n    \"id\": \"507f1f77bcf86cd799439012\",\n    \"name\": \"Agent Smith\",\n    \"email\": \"agent@example.com\",\n    \"role\": \"user\",\n    \"isEmailVerified\": false,\n    \"agentProfile\": {\n      \"status\": \"pending_review\",\n      \"isVerified\": false\n    }\n  },\n  \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"expiresIn\": \"7d\"\n}"
           }]
         },
         {
