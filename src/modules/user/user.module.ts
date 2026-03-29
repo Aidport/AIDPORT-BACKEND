@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from './entities/user.entity';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
+import { AgentsController } from './agents.controller';
 import { EncryptionModule } from '../../core/encryption/encryption.module';
 
 @Module({
@@ -10,7 +11,7 @@ import { EncryptionModule } from '../../core/encryption/encryption.module';
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     EncryptionModule,
   ],
-  controllers: [UserController],
+  controllers: [UserController, AgentsController],
   providers: [UserService],
   exports: [UserService],
 })

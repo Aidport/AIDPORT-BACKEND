@@ -52,6 +52,17 @@ describe('App (e2e)', () => {
       .expect(200);
   });
 
+  it('/agents (GET) - public list without auth', () => {
+    return request(app.getHttpServer())
+      .get('/agents')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body).toHaveProperty('items');
+        expect(res.body).toHaveProperty('meta');
+        expect(Array.isArray(res.body.items)).toBe(true);
+      });
+  });
+
   it('/auth/signup (POST) - user registration', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/signup')

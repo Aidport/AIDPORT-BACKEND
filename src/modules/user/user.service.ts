@@ -17,6 +17,7 @@ import { Role } from '../../common/decorators/roles.decorator';
 import { AgentProfileResponse, UserResponse } from './types/user-response.types';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentStatus } from './entities/agent-profile.schema';
+import { ListAgentsQueryDto } from './dto/list-agents-query.dto';
 
 @Injectable()
 export class UserService {
@@ -193,6 +194,59 @@ export class UserService {
     await this.userModel.findByIdAndUpdate(userId, { passwordHash: hash }).exec();
   }
 
+  /** Public listing: only agents with approved or active application status. */
+  async listPublicAgents(query: ListAgentsQueryDto) {
+    const { page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+    const match: Record<string, unknown> = {
+      role: Role.Agent,
+      'agentProfile.status': { $in: [AgentStatus.Approved, AgentStatus.Active] },
+    };
+    if (query.transportMode) {
+      match['agentProfile.transportModes'] = query.transportMode;
+    }
+    if (query.search) {
+      const r = new RegExp(escapeRegexForAgentList(query.search), 'i');
+      match.$or = [
+        { name: r },
+        { 'agentProfile.companyName': r },
+        { 'agentProfile.location': r },
+      ];
+    }
+
+    const [rawItems, total] = await Promise.all([
+      this.userModel
+        .find(match)
+        .select('name agentProfile createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.userModel.countDocuments(match),
+    ]);
+
+    const items = rawItems.map((doc) => {
+      const d = doc as typeof doc & { createdAt?: Date };
+      return {
+        id: String(doc._id),
+        name: doc.name,
+        agentProfile: doc.agentProfile,
+        createdAt: d.createdAt,
+      };
+    });
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   async findAll(pagination: PaginationDto, role?: Role) {
     const { page = 1, limit = 10 } = pagination;
     const query = role ? { role } : {};
@@ -250,4 +304,8 @@ export class UserService {
     }
     return base;
   }
+}
+
+function escapeRegexForAgentList(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
