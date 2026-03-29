@@ -19,24 +19,22 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AcceptAgentQuoteDto } from './dto/accept-agent-quote.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
-import { AgentPortalGuard } from '../../common/guards/agent-portal.guard';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
 @Controller('agent')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Agent)
 export class AgentController {
   constructor(private readonly agentService: AgentService) {}
 
   @Get('me')
-  @UseGuards(AgentPortalGuard)
   me(@CurrentUser('id') agentId: string) {
     return this.agentService.getMe(agentId);
   }
 
   /** Step 2: submit company profile after POST /auth/signup/agent (step 1). */
   @Patch('profile')
-  @UseGuards(AgentPortalGuard)
   completeProfile(
     @CurrentUser('id') agentId: string,
     @Body() dto: CompleteAgentProfileDto,
@@ -46,8 +44,6 @@ export class AgentController {
 
   /** Admin-approved quotes awaiting an agent (linked to shipments) */
   @Get('quotes')
-  @UseGuards(RolesGuard)
-  @Roles(Role.Agent)
   listOpenQuotes(
     @CurrentUser('id') agentId: string,
     @Query() pagination: PaginationDto,
@@ -56,8 +52,6 @@ export class AgentController {
   }
 
   @Post('quotes/:quoteId/accept')
-  @UseGuards(RolesGuard)
-  @Roles(Role.Agent)
   acceptQuote(
     @Param('quoteId') quoteId: string,
     @CurrentUser('id') agentId: string,
@@ -67,8 +61,6 @@ export class AgentController {
   }
 
   @Patch('shipments/:shipmentId/rates')
-  @UseGuards(RolesGuard)
-  @Roles(Role.Agent)
   addRates(
     @Param('shipmentId') shipmentId: string,
     @CurrentUser('id') agentId: string,

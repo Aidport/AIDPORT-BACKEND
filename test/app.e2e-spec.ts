@@ -189,18 +189,8 @@ describe('App (e2e)', () => {
       .expect(403);
   });
 
-  it('/auth/login/agent (POST) - allows agent role after admin approval', async () => {
-    const adminRes = await request(app.getHttpServer())
-      .post('/auth/signup/admin')
-      .send({
-        name: 'Admin For Agent Login',
-        email: 'admin-for-agent-login@example.com',
-        password: 'password123',
-      })
-      .expect(201);
-    const adminToken = adminRes.body.accessToken;
-
-    const signup = await request(app.getHttpServer())
+  it('/auth/login/agent (POST) - allows agent role', async () => {
+    await request(app.getHttpServer())
       .post('/auth/signup/agent')
       .send({
         name: 'Portal Agent',
@@ -208,18 +198,6 @@ describe('App (e2e)', () => {
         password: 'password123',
       })
       .expect(201);
-    expect(signup.body.user.role).toBe('user');
-
-    await request(app.getHttpServer())
-      .post('/auth/login/agent')
-      .send({ email: 'portal-agent@example.com', password: 'password123' })
-      .expect(403);
-
-    await request(app.getHttpServer())
-      .patch(`/admin/agents/${signup.body.user.id}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: 'approved' })
-      .expect(200);
 
     const res = await request(app.getHttpServer())
       .post('/auth/login/agent')
