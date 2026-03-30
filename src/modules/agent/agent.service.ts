@@ -5,6 +5,7 @@ import { ShipmentService } from '../shipment/shipment.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
+import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
 
 @Injectable()
 export class AgentService {
@@ -20,6 +21,10 @@ export class AgentService {
 
   completeProfile(agentId: string, dto: CompleteAgentProfileDto) {
     return this.userService.completeAgentProfile(agentId, dto);
+  }
+
+  updateDocuments(agentId: string, dto: UpdateAgentDocumentsDto) {
+    return this.userService.updateAgentDocumentUrls(agentId, dto);
   }
 
   async listOpenQuotes(agentId: string, pagination: PaginationDto) {

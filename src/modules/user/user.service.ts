@@ -10,6 +10,7 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CompleteAgentProfileDto } from './dto/complete-agent-profile.dto';
+import { UpdateAgentDocumentsDto } from './dto/update-agent-documents.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
@@ -75,6 +76,20 @@ export class UserService {
           : ((prevPlain.documentUrls as string[] | undefined) ?? []),
     } as AgentProfile;
     user.isEmailVerified = true;
+    await user.save();
+    return this.toUserResponse(user);
+  }
+
+  /** Set or replace `agentProfile.documentUrls` (upload returns URLs; this persists them). */
+  async updateAgentDocumentUrls(agentId: string, dto: UpdateAgentDocumentsDto) {
+    const user = await this.userModel.findById(agentId).exec();
+    if (!user || user.role !== Role.Agent) {
+      throw new ForbiddenException('Only agents can update document URLs');
+    }
+    if (!user.agentProfile) {
+      throw new ForbiddenException('Agent profile not initialized');
+    }
+    user.agentProfile.documentUrls = dto.documentUrls;
     await user.save();
     return this.toUserResponse(user);
   }
@@ -298,6 +313,16 @@ export class UserService {
     };
   }
 
+  /** Mongoose subdocuments need `toObject()` for reliable reads (e.g. `documentUrls`). */
+  private agentProfileToPlain(
+    ap: AgentProfile & { toObject?: (opts?: Record<string, unknown>) => AgentProfile },
+  ): AgentProfile {
+    if (ap && typeof ap.toObject === 'function') {
+      return ap.toObject({ virtuals: false });
+    }
+    return ap;
+  }
+
   toUserResponse(user: UserDocument): UserResponse {
     const base: UserResponse = {
       id: String(user._id ?? (user as { id?: string }).id),
@@ -315,7 +340,7 @@ export class UserService {
       settings: user.settings,
     };
     if (user.agentProfile) {
-      const ap = user.agentProfile;
+      const ap = this.agentProfileToPlain(user.agentProfile);
       const agentProfile: AgentProfileResponse = {
         pricingPlan: ap.pricingPlan,
         companyName: ap.companyName,
@@ -330,7 +355,7 @@ export class UserService {
         trucksCount: ap.trucksCount,
         loadCapacity: ap.loadCapacity,
         status: ap.status,
-        documentUrls: ap.documentUrls,
+        documentUrls: Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : ap.documentUrls,
         category: ap.category,
       };
       return { ...base, agentProfile };

@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AgentService } from './agent.service';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -19,6 +19,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AcceptAgentQuoteDto } from './dto/accept-agent-quote.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
+import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -40,6 +41,19 @@ export class AgentController {
     @Body() dto: CompleteAgentProfileDto,
   ) {
     return this.agentService.completeProfile(agentId, dto);
+  }
+
+  @Patch('documents')
+  @ApiOperation({
+    summary: 'Set company document URLs',
+    description:
+      'Upload files with POST /upload, then send the returned `url` values here. Replaces the full list; use [] to clear. Required for documents to appear on GET /agent/me.',
+  })
+  updateDocuments(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: UpdateAgentDocumentsDto,
+  ) {
+    return this.agentService.updateDocuments(agentId, dto);
   }
 
   /** Admin-approved quotes awaiting an agent (linked to shipments) */
