@@ -1,12 +1,15 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   MinLength,
   ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import {
   AgentPricingPlan,
@@ -50,4 +53,17 @@ export class CompleteAgentProfileDto {
   @ArrayMinSize(1)
   @IsEnum(TransportMode, { each: true })
   transportModes: TransportMode[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'HTTPS URLs from POST /upload (e.g. PDFs or Word docs). Omit to keep existing links.',
+    example: ['https://res.cloudinary.com/.../doc.pdf'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsUrl({ require_protocol: true }, { each: true })
+  @MaxLength(2048, { each: true })
+  documentUrls?: string[];
 }

@@ -16,7 +16,7 @@ import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
 import { AgentProfileResponse, UserResponse } from './types/user-response.types';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { AgentStatus } from './entities/agent-profile.schema';
+import { AgentProfile, AgentStatus } from './entities/agent-profile.schema';
 import { ListAgentsQueryDto } from './dto/list-agents-query.dto';
 
 @Injectable()
@@ -52,18 +52,28 @@ export class UserService {
       throw new ForbiddenException('Only agents can complete this profile');
     }
     const dateEstablished = new Date(dto.dateEstablished);
-    const prev = user.agentProfile ?? { status: AgentStatus.PendingReview };
+    const prevSub = user.agentProfile as AgentProfile & {
+      toObject?: () => Record<string, unknown>;
+    };
+    const prevPlain: Record<string, unknown> =
+      typeof prevSub.toObject === 'function'
+        ? prevSub.toObject()
+        : { ...(prevSub as Record<string, unknown>) };
     user.agentProfile = {
-      ...prev,
-      status: prev.status ?? AgentStatus.PendingReview,
+      ...prevPlain,
+      status: (prevPlain.status as AgentStatus | undefined) ?? AgentStatus.PendingReview,
       pricingPlan: dto.pricingPlan,
       companyName: dto.companyName,
       dateEstablished,
       location: dto.location,
       aboutCompany: dto.aboutCompany,
       transportModes: dto.transportModes,
-      isVerified: prev.isVerified ?? false,
-    };
+      isVerified: (prevPlain.isVerified as boolean | undefined) ?? false,
+      documentUrls:
+        dto.documentUrls !== undefined
+          ? dto.documentUrls
+          : ((prevPlain.documentUrls as string[] | undefined) ?? []),
+    } as AgentProfile;
     user.isEmailVerified = true;
     await user.save();
     return this.toUserResponse(user);
