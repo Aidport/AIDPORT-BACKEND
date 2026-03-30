@@ -27,7 +27,20 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder,
-    allowed_formats: ['jpg', 'jpeg', 'png', 'svg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'pdf'],
+    allowed_formats: [
+      'jpg',
+      'jpeg',
+      'png',
+      'svg',
+      'webp',
+      'gif',
+      'mp4',
+      'webm',
+      'mov',
+      'pdf',
+      'doc',
+      'docx',
+    ],
     resource_type: 'auto',
   } as Record<string, unknown>,
 });
@@ -41,7 +54,7 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload a single file to Cloudinary',
     description:
-      'Multipart field name: `file`. Max 10MB. Images/video via Multer + CloudinaryStorage.',
+      'Multipart field name: `file`. Max 10MB. Images, video, PDF, and Word docs via Multer + CloudinaryStorage.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -77,7 +90,8 @@ export class UploadController {
   @Post('multiple')
   @ApiOperation({
     summary: 'Upload up to 10 files to Cloudinary',
-    description: 'Multipart field name: `files` (array). Max 10MB per file.',
+    description:
+      'Multipart field name: `files` (array). Max 10MB per file. Same types as single upload.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

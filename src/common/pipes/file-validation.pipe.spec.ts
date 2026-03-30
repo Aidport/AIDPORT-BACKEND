@@ -21,8 +21,19 @@ describe('FileValidationPipe', () => {
     expect(pipe.transform(file)).toEqual(file);
   });
 
-  it('should accept valid extensions: jpg, png, svg, mp4, webm, mov', () => {
-    const extensions = ['photo.jpg', 'img.jpeg', 'pic.png', 'icon.svg', 'vid.mp4', 'clip.webm', 'movie.mov'];
+  it('should accept valid extensions including pdf and docs', () => {
+    const extensions = [
+      'photo.jpg',
+      'img.jpeg',
+      'pic.png',
+      'icon.svg',
+      'vid.mp4',
+      'clip.webm',
+      'movie.mov',
+      'document.pdf',
+      'legacy.doc',
+      'modern.docx',
+    ];
     for (const name of extensions) {
       const file = { originalname: name, fieldname: 'f', buffer: Buffer.from('') } as Express.Multer.File;
       expect(pipe.transform(file)).toEqual(file);
@@ -32,11 +43,11 @@ describe('FileValidationPipe', () => {
   it('should reject invalid extension', () => {
     const file = {
       fieldname: 'file',
-      originalname: 'document.pdf',
+      originalname: 'malware.exe',
       buffer: Buffer.from(''),
     } as Express.Multer.File;
     expect(() => pipe.transform(file)).toThrow(BadRequestException);
-    expect(() => pipe.transform(file)).toThrow(/Invalid file extension.*pdf/);
+    expect(() => pipe.transform(file)).toThrow(/Invalid file extension.*exe/);
   });
 
   it('should accept valid array of files', () => {

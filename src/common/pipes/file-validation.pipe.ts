@@ -14,6 +14,9 @@ export class FileValidationPipe
     'mp4',
     'webm',
     'mov',
+    'pdf',
+    'doc',
+    'docx',
   ];
 
   transform(
