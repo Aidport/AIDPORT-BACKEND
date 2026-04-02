@@ -171,7 +171,16 @@ describe('QuotesService', () => {
       expect(shipmentService.agentSetRates).toHaveBeenCalledWith(
         String(shipmentOid),
         agentId,
-        { amount: 5000 },
+        {
+          rates: [
+            {
+              type: 'local',
+              originZone: '',
+              destinationZone: '',
+              price: 5000,
+            },
+          ],
+        },
       );
     });
 

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ShipmentService } from './shipment.service';
-import { Shipment, ShipmentStatus } from './entities/shipment.entity';
+import { Shipment, ShipmentRateKind, ShipmentStatus } from './entities/shipment.entity';
 import { Types } from 'mongoose';
 
 describe('ShipmentService', () => {
@@ -148,7 +148,16 @@ describe('ShipmentService', () => {
       });
       (service as any).shipmentModel = mockShipmentModel;
       await expect(
-        service.agentSetRates('s1', 'otherAgent', { amount: 100 }),
+        service.agentSetRates('s1', 'otherAgent', {
+          rates: [
+            {
+              type: ShipmentRateKind.Local,
+              originZone: 'a',
+              destinationZone: 'b',
+              price: 100,
+            },
+          ],
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });

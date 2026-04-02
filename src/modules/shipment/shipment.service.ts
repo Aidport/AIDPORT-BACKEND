@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Shipment, ShipmentDocument, ShipmentStatus } from './entities/shipment.entity';
+import {
+  Shipment,
+  ShipmentDocument,
+  ShipmentRateKind,
+  ShipmentRateLine,
+  ShipmentStatus,
+} from './entities/shipment.entity';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -246,7 +252,7 @@ export class ShipmentService {
     shipmentId: string,
     agentId: string,
     dto: {
-      amount: number;
+      rates: ShipmentRateLine[];
       currency?: string;
       carrierName?: string;
       carrierSlug?: string;
@@ -261,7 +267,14 @@ export class ShipmentService {
     if (shipment.acceptedBy?.toString() !== agentId) {
       throw new ForbiddenException('Only the assigned agent can add or update rates');
     }
-    shipment.amount = dto.amount;
+    shipment.rates = dto.rates.map((r) => ({
+      type: r.type,
+      price: r.price,
+      ...(r.type === ShipmentRateKind.Local
+        ? { originZone: r.originZone, destinationZone: r.destinationZone }
+        : { originCountry: r.originCountry, destinationCountry: r.destinationCountry }),
+    }));
+    shipment.amount = dto.rates.reduce((sum, r) => sum + r.price, 0);
     if (dto.currency !== undefined) shipment.currency = dto.currency;
     if (dto.carrierName !== undefined) shipment.carrierName = dto.carrierName;
     if (dto.carrierSlug !== undefined) shipment.carrierSlug = dto.carrierSlug;

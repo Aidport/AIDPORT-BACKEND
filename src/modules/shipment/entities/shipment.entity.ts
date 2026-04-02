@@ -98,6 +98,35 @@ const ShipmentAddressSchema = SchemaFactory.createForClass(ShipmentAddress);
 const ParcelItemSchema = SchemaFactory.createForClass(ParcelItem);
 const ShipmentEventSchema = SchemaFactory.createForClass(ShipmentEvent);
 
+export enum ShipmentRateKind {
+  Local = 'local',
+  International = 'international',
+}
+
+/** One commercial rate line (local zones vs international countries). */
+@Schema({ _id: false })
+export class ShipmentRateLine {
+  @Prop({ required: true, enum: Object.values(ShipmentRateKind) })
+  type: ShipmentRateKind;
+
+  @Prop()
+  originZone?: string;
+
+  @Prop()
+  destinationZone?: string;
+
+  @Prop()
+  originCountry?: string;
+
+  @Prop()
+  destinationCountry?: string;
+
+  @Prop({ required: true })
+  price: number;
+}
+
+const ShipmentRateLineSchema = SchemaFactory.createForClass(ShipmentRateLine);
+
 @Schema({ timestamps: true })
 export class Shipment {
   @Prop({ required: true })
@@ -166,7 +195,11 @@ export class Shipment {
   @Prop()
   trackingUrl?: string;
 
-  /** Shipping cost / rate amount */
+  /** Detailed rate lines from the assigned agent */
+  @Prop({ type: [ShipmentRateLineSchema], default: [] })
+  rates?: ShipmentRateLine[];
+
+  /** Shipping cost / rate amount (typically sum of `rates[].price`) */
   @Prop()
   amount?: number;
 

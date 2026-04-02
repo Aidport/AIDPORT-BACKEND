@@ -11,6 +11,7 @@ import { Model, Types } from 'mongoose';
 import { Quote, QuoteDocument, QuoteStatus } from './entities/quote.entity';
 import { Shipment, ShipmentDocument } from '../shipment/entities/shipment.entity';
 import { ShipmentService } from '../shipment/shipment.service';
+import { ShipmentRateKind } from '../shipment/entities/shipment.entity';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
@@ -177,7 +178,14 @@ export class QuotesService {
 
     if (dto?.amount != null) {
       await this.shipmentService.agentSetRates(shipmentIdStr, agentId, {
-        amount: dto.amount,
+        rates: [
+          {
+            type: ShipmentRateKind.Local,
+            originZone: '',
+            destinationZone: '',
+            price: dto.amount,
+          },
+        ],
       });
     }
 

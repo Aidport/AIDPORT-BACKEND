@@ -8,6 +8,8 @@ import {
   TransportMode,
 } from '../user/entities/agent-profile.schema';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
+import { ShipmentRateKind } from '../shipment/entities/shipment.entity';
+import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 
 describe('AgentService', () => {
   let service: AgentService;
@@ -82,14 +84,19 @@ describe('AgentService', () => {
   });
 
   it('addShipmentRates asserts agent and delegates', async () => {
-    await service.addShipmentRates('a1', 's1', {
-      amount: 200,
+    const dto: AgentAddRatesDto = {
+      rates: [
+        {
+          type: ShipmentRateKind.Local,
+          originZone: 'A',
+          destinationZone: 'B',
+          price: 200,
+        },
+      ],
       currency: 'NGN',
-    });
+    };
+    await service.addShipmentRates('a1', 's1', dto);
     expect(userService.assertAgentCanOperate).toHaveBeenCalledWith('a1');
-    expect(shipmentService.agentSetRates).toHaveBeenCalledWith('s1', 'a1', {
-      amount: 200,
-      currency: 'NGN',
-    });
+    expect(shipmentService.agentSetRates).toHaveBeenCalledWith('s1', 'a1', dto);
   });
 });

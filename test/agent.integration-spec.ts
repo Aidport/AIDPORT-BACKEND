@@ -154,13 +154,27 @@ describe('Agent auth, quotes, rates (integration)', () => {
       .patch(`/agent/shipments/${shipmentId}/rates`)
       .set('Authorization', `Bearer ${agentToken}`)
       .send({
-        amount: 18000,
+        rates: [
+          {
+            type: 'local',
+            originZone: 'Lagos',
+            destinationZone: 'Abuja',
+            price: 9000,
+          },
+          {
+            type: 'international',
+            originCountry: 'Nigeria',
+            destinationCountry: 'UK',
+            price: 9000,
+          },
+        ],
         currency: 'NGN',
         carrierName: 'Aidport Partner',
       })
       .expect(200);
 
     expect(rateRes.body.amount).toBe(18000);
+    expect(rateRes.body.rates).toHaveLength(2);
     expect(rateRes.body.carrierName).toBe('Aidport Partner');
   });
 });

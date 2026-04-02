@@ -461,7 +461,7 @@
         },
         {
           "name": "Set Shipment Rates",
-          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"amount\": 18000,\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"\",\n      \"destinationZone\": \"\",\n      \"price\": 12000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"\",\n      \"destinationCountry\": \"\",\n      \"price\": 12000\n    }\n  ],\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
         }
       ]
     },

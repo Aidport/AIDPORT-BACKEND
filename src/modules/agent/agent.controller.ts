@@ -75,6 +75,11 @@ export class AgentController {
   }
 
   @Patch('shipments/:shipmentId/rates')
+  @ApiOperation({
+    summary: 'Set shipment commercial rates',
+    description:
+      'Provide `rates` as an array of local (zones) or international (countries) lines. `amount` on the shipment is set to the sum of `price`.',
+  })
   addRates(
     @Param('shipmentId') shipmentId: string,
     @CurrentUser('id') agentId: string,
