@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -12,8 +13,12 @@ import {
   ShipmentRateLine,
   ShipmentStatus,
 } from './entities/shipment.entity';
+import { User, UserDocument } from '../user/entities/user.entity';
+import { Role } from '../../common/decorators/roles.decorator';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { SendShipmentRequestDto } from './dto/send-shipment-request.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
+import { UpdateShipmentStatusDto } from './dto/update-shipment-status.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 function escapeRegex(s: string): string {
@@ -31,6 +36,7 @@ export type ShipmentAdminFilter =
 export class ShipmentService {
   constructor(
     @InjectModel(Shipment.name) private shipmentModel: Model<ShipmentDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async create(createShipmentDto: CreateShipmentDto, userId: string) {
@@ -101,7 +107,9 @@ export class ShipmentService {
             status: {
               $in: [
                 ShipmentStatus.Accepted,
+                ShipmentStatus.Processing,
                 ShipmentStatus.InTransit,
+                ShipmentStatus.PickedUp,
                 ShipmentStatus.Delayed,
               ],
             },
@@ -176,7 +184,15 @@ export class ShipmentService {
 
   async findIncoming(agentId: string, pagination: PaginationDto) {
     const { page = 1, limit = 10 } = pagination;
-    const query = { status: ShipmentStatus.Pending };
+    const query = {
+      $or: [
+        { status: ShipmentStatus.Pending },
+        {
+          status: ShipmentStatus.Requested,
+          requestedAgentId: new Types.ObjectId(agentId),
+        },
+      ],
+    };
     const [items, total] = await Promise.all([
       this.shipmentModel
         .find(query)
@@ -197,6 +213,7 @@ export class ShipmentService {
     const shipment = await this.shipmentModel
       .findById(id)
       .populate('createdBy', 'name email')
+      .populate('requestedAgentId', 'name email agentProfile')
       .populate('acceptedBy', 'name email')
       .exec();
     if (!shipment) {
@@ -211,6 +228,111 @@ export class ShipmentService {
       throw new NotFoundException('Shipment not found');
     }
     Object.assign(shipment, updateShipmentDto);
+    return shipment.save();
+  }
+
+  /** Shipper targets an agent; shipment starts as `requested`. */
+  async sendShipmentRequest(dto: SendShipmentRequestDto, userId: string) {
+    const agent = await this.userModel.findById(dto.agentId).exec();
+    if (!agent || agent.role !== Role.Agent) {
+      throw new BadRequestException('agentId must be a valid agent user');
+    }
+    const { agentId, ...fields } = dto;
+    const shipment = new this.shipmentModel({
+      ...fields,
+      imageUrls: fields.imageUrls ?? [],
+      parcelItems: fields.parcelItems ?? [],
+      preferredPickupDate: fields.preferredPickupDate
+        ? new Date(fields.preferredPickupDate)
+        : undefined,
+      createdBy: new Types.ObjectId(userId),
+      requestedAgentId: new Types.ObjectId(agentId),
+      status: ShipmentStatus.Requested,
+      events: [
+        {
+          status: 'requested',
+          description: 'Shipment request sent to agent',
+          location: `${fields.originCity} → ${fields.destinationCity}`,
+          createdAt: new Date(),
+        },
+      ],
+    });
+    return shipment.save();
+  }
+
+  /** Requested agent accepts → `processing`, assigns agent. */
+  async acceptShipmentRequest(id: string, agentId: string) {
+    const shipment = await this.shipmentModel.findById(id).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    if (shipment.status !== ShipmentStatus.Requested) {
+      throw new ForbiddenException('Shipment is not awaiting acceptance');
+    }
+    if (shipment.requestedAgentId?.toString() !== agentId) {
+      throw new ForbiddenException('Only the requested agent can accept this shipment');
+    }
+    shipment.status = ShipmentStatus.Processing;
+    shipment.acceptedBy = new Types.ObjectId(agentId);
+    this.addEvent(shipment, 'processing', 'Agent accepted shipment request');
+    return shipment.save();
+  }
+
+  /** Requested agent declines → `declined`. */
+  async declineShipmentRequest(id: string, agentId: string) {
+    const shipment = await this.shipmentModel.findById(id).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    if (shipment.status !== ShipmentStatus.Requested) {
+      throw new ForbiddenException('Shipment is not awaiting a decision');
+    }
+    if (shipment.requestedAgentId?.toString() !== agentId) {
+      throw new ForbiddenException('Only the requested agent can decline this shipment');
+    }
+    shipment.status = ShipmentStatus.Declined;
+    this.addEvent(shipment, 'declined', 'Agent declined shipment request');
+    return shipment.save();
+  }
+
+  /** Assigned agent updates operational status (`in_transit` | `picked_up` | `delivered`). */
+  async updateShipmentStatusByAgent(
+    id: string,
+    agentId: string,
+    dto: UpdateShipmentStatusDto,
+  ) {
+    const shipment = await this.shipmentModel.findById(id).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    if (shipment.acceptedBy?.toString() !== agentId) {
+      throw new ForbiddenException('Only the assigned agent can update shipment status');
+    }
+    if (shipment.status === ShipmentStatus.Delivered) {
+      throw new ForbiddenException('Shipment is already delivered');
+    }
+    const allowedCurrent: ShipmentStatus[] = [
+      ShipmentStatus.Processing,
+      ShipmentStatus.Accepted,
+      ShipmentStatus.InTransit,
+      ShipmentStatus.PickedUp,
+      ShipmentStatus.Delayed,
+    ];
+    if (!allowedCurrent.includes(shipment.status)) {
+      throw new ForbiddenException('Shipment status cannot be updated from the current state');
+    }
+    shipment.status = dto.status;
+    if (dto.status === ShipmentStatus.Delivered) {
+      shipment.deliveredAt = new Date();
+    }
+    this.addEvent(
+      shipment,
+      dto.status,
+      `Status updated to ${dto.status}`,
+      shipment.originCity && shipment.destinationCity
+        ? `${shipment.originCity} → ${shipment.destinationCity}`
+        : undefined,
+    );
     return shipment.save();
   }
 

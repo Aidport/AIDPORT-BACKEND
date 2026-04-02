@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ShipmentService } from './shipment.service';
 import { Shipment, ShipmentRateKind, ShipmentStatus } from './entities/shipment.entity';
+import { User } from '../user/entities/user.entity';
 import { Types } from 'mongoose';
 
 describe('ShipmentService', () => {
@@ -41,6 +42,14 @@ describe('ShipmentService', () => {
           provide: getModelToken(Shipment.name),
           useValue: mockShipmentModel,
         },
+        {
+          provide: getModelToken(User.name),
+          useValue: {
+            findById: jest.fn().mockReturnValue({
+              exec: jest.fn().mockResolvedValue({ role: 'agent' }),
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -53,13 +62,12 @@ describe('ShipmentService', () => {
 
   describe('findOne', () => {
     it('should throw NotFoundException when shipment not found', async () => {
-      mockShipmentModel.findById = jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          populate: jest.fn().mockReturnValue({
-            exec: jest.fn().mockResolvedValue(null),
-          }),
-        }),
-      });
+      const chain: { populate: jest.Mock; exec: jest.Mock } = {
+        populate: jest.fn(),
+        exec: jest.fn().mockResolvedValue(null),
+      };
+      chain.populate.mockReturnValue(chain);
+      mockShipmentModel.findById = jest.fn().mockReturnValue(chain);
       (service as any).shipmentModel = mockShipmentModel;
       await expect(service.findOne('nonexistent')).rejects.toThrow(NotFoundException);
     });
@@ -101,7 +109,7 @@ describe('ShipmentService', () => {
       (service as any).shipmentModel = mockShipmentModel;
     });
 
-    it('should apply active filter (accepted, in_transit, delayed)', async () => {
+    it('should apply active filter (accepted, processing, in_transit, picked_up, delayed)', async () => {
       await service.findForAdmin(
         { page: 1, limit: 10 },
         { dashboardFilter: 'active' },
@@ -110,7 +118,9 @@ describe('ShipmentService', () => {
         status: {
           $in: [
             ShipmentStatus.Accepted,
+            ShipmentStatus.Processing,
             ShipmentStatus.InTransit,
+            ShipmentStatus.PickedUp,
             ShipmentStatus.Delayed,
           ],
         },

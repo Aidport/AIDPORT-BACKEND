@@ -482,6 +482,27 @@
           }]
         },
         {
+          "name": "Send Shipment Request (to agent)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('shipmentId', pm.response.json()._id); }"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments/request", "description": "Shipper JWT. Same body as Create Shipment plus agentId. Sets status to requested. Set collection variable agentId to the target agent's user _id." },
+          "response": []
+        },
+        {
+          "name": "Accept Shipment Request (Agent)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/accept-request", "description": "Agent JWT. requested → processing. Only the requestedAgentId can accept." },
+          "response": []
+        },
+        {
+          "name": "Decline Shipment Request (Agent)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/decline-request", "description": "Agent JWT. requested → declined." },
+          "response": []
+        },
+        {
+          "name": "Update Shipment Status (Agent)",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_transit\"\n}" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/status", "description": "Agent JWT after accept. status: in_transit | picked_up | delivered" },
+          "response": []
+        },
+        {
           "name": "Get Rates",
           "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"weightKg\": 2.5,\n  \"currency\": \"NGN\"\n}" }, "url": "{{baseUrl}}/shipments/rates" },
           "response": [{

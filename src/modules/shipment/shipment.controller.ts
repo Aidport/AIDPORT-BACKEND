@@ -12,7 +12,9 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ShipmentService } from './shipment.service';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { SendShipmentRequestDto } from './dto/send-shipment-request.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
+import { UpdateShipmentStatusDto } from './dto/update-shipment-status.dto';
 import { GetRatesDto } from './dto/get-rates.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -37,6 +39,15 @@ export class ShipmentController {
     return this.shipmentService.create(createShipmentDto, userId);
   }
 
+  /** Full shipment payload + target agent id; status = `requested`. */
+  @Post('request')
+  sendShipmentRequest(
+    @Body() dto: SendShipmentRequestDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.shipmentService.sendShipmentRequest(dto, userId);
+  }
+
   @Get()
   findAll(
     @Query() pagination: PaginationDto,
@@ -59,6 +70,37 @@ export class ShipmentController {
   @Post('rates')
   getRates(@Body() dto: GetRatesDto) {
     return this.shipmentService.getRates(dto);
+  }
+
+  @Post(':id/accept-request')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Agent)
+  acceptShipmentRequest(
+    @Param('id') id: string,
+    @CurrentUser('id') agentId: string,
+  ) {
+    return this.shipmentService.acceptShipmentRequest(id, agentId);
+  }
+
+  @Post(':id/decline-request')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Agent)
+  declineShipmentRequest(
+    @Param('id') id: string,
+    @CurrentUser('id') agentId: string,
+  ) {
+    return this.shipmentService.declineShipmentRequest(id, agentId);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Agent)
+  updateShipmentStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateShipmentStatusDto,
+    @CurrentUser('id') agentId: string,
+  ) {
+    return this.shipmentService.updateShipmentStatusByAgent(id, agentId, dto);
   }
 
   @Get(':id/track')

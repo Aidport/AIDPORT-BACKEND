@@ -52,7 +52,15 @@ export class DashboardService {
       recentIncoming,
       weeklyDelivered,
     ] = await Promise.all([
-      this.shipmentModel.countDocuments({ status: ShipmentStatus.Pending }),
+      this.shipmentModel.countDocuments({
+        $or: [
+          { status: ShipmentStatus.Pending },
+          {
+            status: ShipmentStatus.Requested,
+            requestedAgentId: new Types.ObjectId(agentId),
+          },
+        ],
+      }),
       this.shipmentModel
         .find({ acceptedBy: new Types.ObjectId(agentId) })
         .sort({ createdAt: -1 })
@@ -64,7 +72,15 @@ export class DashboardService {
         status: ShipmentStatus.Delivered,
       }),
       this.shipmentModel
-        .find({ status: ShipmentStatus.Pending })
+        .find({
+          $or: [
+            { status: ShipmentStatus.Pending },
+            {
+              status: ShipmentStatus.Requested,
+              requestedAgentId: new Types.ObjectId(agentId),
+            },
+          ],
+        })
         .sort({ urgency: -1, createdAt: -1 })
         .limit(5)
         .populate('createdBy', 'name email')
@@ -94,7 +110,7 @@ export class DashboardService {
     });
     const accepted = await this.shipmentModel.countDocuments({
       acceptedBy: new Types.ObjectId(agentId),
-      status: ShipmentStatus.Accepted,
+      status: { $in: [ShipmentStatus.Accepted, ShipmentStatus.Processing] },
     });
 
     return {

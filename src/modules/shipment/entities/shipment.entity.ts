@@ -14,9 +14,14 @@ export enum ShipmentCategory {
 export enum ShipmentStatus {
   Draft = 'draft',
   Pending = 'pending',
+  /** Shipper sent a targeted request to a specific agent */
+  Requested = 'requested',
   Accepted = 'accepted',
+  /** Agent accepted the request (operational) */
+  Processing = 'processing',
   Declined = 'declined',
   InTransit = 'in_transit',
+  PickedUp = 'picked_up',
   Delayed = 'delayed',
   Delivered = 'delivered',
   Cancelled = 'cancelled',
@@ -173,6 +178,10 @@ export class Shipment {
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   createdBy?: Types.ObjectId;
+
+  /** Agent the shipper addressed (when status is `requested`) */
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  requestedAgentId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   acceptedBy?: Types.ObjectId;
