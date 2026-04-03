@@ -4,6 +4,7 @@ import {
   AgentStatus,
   TransportMode,
 } from '../entities/agent-profile.schema';
+import type { ShipmentRateLine } from '../../shipment/entities/shipment.entity';
 
 export interface AgentProfileResponse {
   pricingPlan?: AgentPricingPlan;
@@ -18,6 +19,7 @@ export interface AgentProfileResponse {
   loadCapacity?: string;
   status?: AgentStatus;
   documentUrls?: string[];
+  rates?: ShipmentRateLine[];
   category?: string;
 }
 

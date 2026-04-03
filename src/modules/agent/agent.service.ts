@@ -6,6 +6,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
 import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
+import { UpdateAgentRatesDto } from '../user/dto/update-agent-rates.dto';
 
 @Injectable()
 export class AgentService {
@@ -25,6 +26,10 @@ export class AgentService {
 
   updateDocuments(agentId: string, dto: UpdateAgentDocumentsDto) {
     return this.userService.updateAgentDocumentUrls(agentId, dto);
+  }
+
+  updateRates(agentId: string, dto: UpdateAgentRatesDto) {
+    return this.userService.updateAgentRates(agentId, dto);
   }
 
   async listOpenQuotes(agentId: string, pagination: PaginationDto) {

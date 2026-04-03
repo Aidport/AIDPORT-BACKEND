@@ -11,6 +11,7 @@ import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CompleteAgentProfileDto } from './dto/complete-agent-profile.dto';
 import { UpdateAgentDocumentsDto } from './dto/update-agent-documents.dto';
+import { UpdateAgentRatesDto } from './dto/update-agent-rates.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
@@ -18,6 +19,7 @@ import { Role } from '../../common/decorators/roles.decorator';
 import { AgentProfileResponse, UserResponse } from './types/user-response.types';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentProfile, AgentStatus } from './entities/agent-profile.schema';
+import { ShipmentRateKind } from '../shipment/entities/shipment.entity';
 import { ListAgentsQueryDto } from './dto/list-agents-query.dto';
 
 @Injectable()
@@ -39,7 +41,7 @@ export class UserService {
       passwordHash,
       role,
       ...(role === Role.Agent
-        ? { agentProfile: { status: AgentStatus.PendingReview } }
+        ? { agentProfile: { status: AgentStatus.PendingReview, rates: [] } }
         : {}),
     });
     const saved = await user.save();
@@ -74,6 +76,7 @@ export class UserService {
         dto.documentUrls !== undefined
           ? dto.documentUrls
           : ((prevPlain.documentUrls as string[] | undefined) ?? []),
+      rates: (prevPlain.rates as AgentProfile['rates'] | undefined) ?? [],
     } as AgentProfile;
     user.isEmailVerified = true;
     await user.save();
@@ -90,6 +93,26 @@ export class UserService {
       throw new ForbiddenException('Agent profile not initialized');
     }
     user.agentProfile.documentUrls = dto.documentUrls;
+    await user.save();
+    return this.toUserResponse(user);
+  }
+
+  /** Replace `agentProfile.rates` (same shape as shipment rate lines). */
+  async updateAgentRates(agentId: string, dto: UpdateAgentRatesDto) {
+    const user = await this.userModel.findById(agentId).exec();
+    if (!user || user.role !== Role.Agent) {
+      throw new ForbiddenException('Only agents can update rates');
+    }
+    if (!user.agentProfile) {
+      throw new ForbiddenException('Agent profile not initialized');
+    }
+    user.agentProfile.rates = dto.rates.map((r) => ({
+      type: r.type,
+      price: r.price,
+      ...(r.type === ShipmentRateKind.Local
+        ? { originZone: r.originZone, destinationZone: r.destinationZone }
+        : { originCountry: r.originCountry, destinationCountry: r.destinationCountry }),
+    }));
     await user.save();
     return this.toUserResponse(user);
   }
@@ -356,6 +379,7 @@ export class UserService {
         loadCapacity: ap.loadCapacity,
         status: ap.status,
         documentUrls: Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : ap.documentUrls,
+        rates: Array.isArray(ap.rates) ? [...ap.rates] : [],
         category: ap.category,
       };
       return { ...base, agentProfile };

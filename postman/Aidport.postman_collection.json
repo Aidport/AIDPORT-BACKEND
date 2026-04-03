@@ -452,6 +452,19 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
         },
         {
+          "name": "Update Agent Profile Rates",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"Lagos Main\",\n      \"destinationZone\": \"Abuja Central\",\n      \"price\": 12000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"Nigeria\",\n      \"destinationCountry\": \"United Kingdom\",\n      \"price\": 450000\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/agent/rates",
+            "description": "Agent JWT (Bearer {{accessToken}}). Replaces agentProfile.rates; empty at signup. Send {\"rates\":[]} to clear. Not the same as Set Shipment Rates (per-shipment)."
+          }
+        },
+        {
           "name": "List Open Quotes",
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/quotes?page=1&limit=10" }
         },

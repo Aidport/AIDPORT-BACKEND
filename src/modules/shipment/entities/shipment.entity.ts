@@ -130,7 +130,7 @@ export class ShipmentRateLine {
   price: number;
 }
 
-const ShipmentRateLineSchema = SchemaFactory.createForClass(ShipmentRateLine);
+export const ShipmentRateLineSchema = SchemaFactory.createForClass(ShipmentRateLine);
 
 @Schema({ timestamps: true })
 export class Shipment {

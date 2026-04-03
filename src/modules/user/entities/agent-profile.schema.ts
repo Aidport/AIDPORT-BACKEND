@@ -1,4 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import {
+  ShipmentRateLine,
+  ShipmentRateLineSchema,
+} from '../../shipment/entities/shipment.entity';
 
 export enum AgentStatus {
   PendingReview = 'pending_review',
@@ -57,6 +61,10 @@ export class AgentProfile {
 
   @Prop({ type: [String], default: [] })
   documentUrls?: string[];
+
+  /** Default pricing lines (local / international); empty until PATCH /agent/rates */
+  @Prop({ type: [ShipmentRateLineSchema], default: [] })
+  rates?: ShipmentRateLine[];
 
   @Prop()
   category?: string;

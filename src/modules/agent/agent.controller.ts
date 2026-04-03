@@ -20,6 +20,7 @@ import { AcceptAgentQuoteDto } from './dto/accept-agent-quote.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
 import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
+import { UpdateAgentRatesDto } from '../user/dto/update-agent-rates.dto';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -54,6 +55,19 @@ export class AgentController {
     @Body() dto: UpdateAgentDocumentsDto,
   ) {
     return this.agentService.updateDocuments(agentId, dto);
+  }
+
+  @Patch('rates')
+  @ApiOperation({
+    summary: 'Update agent profile rates',
+    description:
+      'Replaces `agentProfile.rates` (empty after signup). Same line shape as PATCH /agent/shipments/:shipmentId/rates. Send `rates: []` to clear.',
+  })
+  updateRates(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: UpdateAgentRatesDto,
+  ) {
+    return this.agentService.updateRates(agentId, dto);
   }
 
   /** Admin-approved quotes awaiting an agent (linked to shipments) */
