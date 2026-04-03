@@ -1,8 +1,32 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import {
-  ShipmentRateLine,
-  ShipmentRateLineSchema,
-} from '../../shipment/entities/shipment.entity';
+import { Types } from 'mongoose';
+import { ShipmentRateKind } from '../../shipment/entities/shipment.entity';
+
+/** Embedded rate line with own `_id` for CRUD on agent profile. */
+@Schema()
+export class AgentRateLine {
+  _id?: Types.ObjectId;
+
+  @Prop({ required: true, enum: Object.values(ShipmentRateKind) })
+  type: ShipmentRateKind;
+
+  @Prop()
+  originZone?: string;
+
+  @Prop()
+  destinationZone?: string;
+
+  @Prop()
+  originCountry?: string;
+
+  @Prop()
+  destinationCountry?: string;
+
+  @Prop({ required: true })
+  price: number;
+}
+
+export const AgentRateLineSchema = SchemaFactory.createForClass(AgentRateLine);
 
 export enum AgentStatus {
   PendingReview = 'pending_review',
@@ -62,9 +86,9 @@ export class AgentProfile {
   @Prop({ type: [String], default: [] })
   documentUrls?: string[];
 
-  /** Default pricing lines (local / international); empty until PATCH /agent/rates */
-  @Prop({ type: [ShipmentRateLineSchema], default: [] })
-  rates?: ShipmentRateLine[];
+  /** Local / international pricing lines (each has Mongo subdocument id) */
+  @Prop({ type: [AgentRateLineSchema], default: [] })
+  rates?: AgentRateLine[];
 
   @Prop()
   category?: string;

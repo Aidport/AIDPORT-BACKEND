@@ -4,7 +4,17 @@ import {
   AgentStatus,
   TransportMode,
 } from '../entities/agent-profile.schema';
-import type { ShipmentRateLine } from '../../shipment/entities/shipment.entity';
+
+/** Agent profile rate line (Mongo subdocument `_id` exposed as `id`). */
+export interface AgentRateLineResponse {
+  id: string;
+  type: 'local' | 'international';
+  originZone?: string;
+  destinationZone?: string;
+  originCountry?: string;
+  destinationCountry?: string;
+  price: number;
+}
 
 export interface AgentProfileResponse {
   pricingPlan?: AgentPricingPlan;
@@ -19,7 +29,7 @@ export interface AgentProfileResponse {
   loadCapacity?: string;
   status?: AgentStatus;
   documentUrls?: string[];
-  rates?: ShipmentRateLine[];
+  rates?: AgentRateLineResponse[];
   category?: string;
 }
 

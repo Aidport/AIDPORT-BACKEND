@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -20,7 +21,10 @@ import { AcceptAgentQuoteDto } from './dto/accept-agent-quote.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
 import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
-import { UpdateAgentRatesDto } from '../user/dto/update-agent-rates.dto';
+import { AddInternationalAgentRateDto } from '../user/dto/add-international-agent-rate.dto';
+import { AddLocalAgentRateDto } from '../user/dto/add-local-agent-rate.dto';
+import { UpdateInternationalAgentRateDto } from '../user/dto/update-international-agent-rate.dto';
+import { UpdateLocalAgentRateDto } from '../user/dto/update-local-agent-rate.dto';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -57,17 +61,72 @@ export class AgentController {
     return this.agentService.updateDocuments(agentId, dto);
   }
 
-  @Patch('rates')
-  @ApiOperation({
-    summary: 'Update agent profile rates',
-    description:
-      'Replaces `agentProfile.rates` (empty after signup). Same line shape as PATCH /agent/shipments/:shipmentId/rates. Send `rates: []` to clear.',
-  })
-  updateRates(
+  @Post('rates/local')
+  @ApiOperation({ summary: 'Add a local rate (appends; does not replace existing).' })
+  addLocalRate(
     @CurrentUser('id') agentId: string,
-    @Body() dto: UpdateAgentRatesDto,
+    @Body() dto: AddLocalAgentRateDto,
   ) {
-    return this.agentService.updateRates(agentId, dto);
+    return this.agentService.addLocalRate(agentId, dto);
+  }
+
+  @Post('rates/international')
+  @ApiOperation({ summary: 'Add an international rate (appends).' })
+  addInternationalRate(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: AddInternationalAgentRateDto,
+  ) {
+    return this.agentService.addInternationalRate(agentId, dto);
+  }
+
+  @Get('rates/local')
+  @ApiOperation({ summary: 'List all local rates on the agent profile' })
+  getLocalRates(@CurrentUser('id') agentId: string) {
+    return this.agentService.getLocalRates(agentId);
+  }
+
+  @Get('rates/international')
+  @ApiOperation({ summary: 'List all international rates on the agent profile' })
+  getInternationalRates(@CurrentUser('id') agentId: string) {
+    return this.agentService.getInternationalRates(agentId);
+  }
+
+  @Patch('rates/local/:rateId')
+  @ApiOperation({ summary: 'Update one local rate by id' })
+  updateLocalRate(
+    @CurrentUser('id') agentId: string,
+    @Param('rateId') rateId: string,
+    @Body() dto: UpdateLocalAgentRateDto,
+  ) {
+    return this.agentService.updateLocalRate(agentId, rateId, dto);
+  }
+
+  @Patch('rates/international/:rateId')
+  @ApiOperation({ summary: 'Update one international rate by id' })
+  updateInternationalRate(
+    @CurrentUser('id') agentId: string,
+    @Param('rateId') rateId: string,
+    @Body() dto: UpdateInternationalAgentRateDto,
+  ) {
+    return this.agentService.updateInternationalRate(agentId, rateId, dto);
+  }
+
+  @Delete('rates/local/:rateId')
+  @ApiOperation({ summary: 'Delete one local rate by id' })
+  deleteLocalRate(
+    @CurrentUser('id') agentId: string,
+    @Param('rateId') rateId: string,
+  ) {
+    return this.agentService.deleteLocalRate(agentId, rateId);
+  }
+
+  @Delete('rates/international/:rateId')
+  @ApiOperation({ summary: 'Delete one international rate by id' })
+  deleteInternationalRate(
+    @CurrentUser('id') agentId: string,
+    @Param('rateId') rateId: string,
+  ) {
+    return this.agentService.deleteInternationalRate(agentId, rateId);
   }
 
   /** Admin-approved quotes awaiting an agent (linked to shipments) */

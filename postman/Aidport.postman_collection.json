@@ -10,7 +10,9 @@
     { "key": "shipmentId", "value": "" },
     { "key": "quoteId", "value": "" },
     { "key": "userId", "value": "" },
-    { "key": "agentId", "value": "" }
+    { "key": "agentId", "value": "" },
+    { "key": "agentRateIdLocal", "value": "" },
+    { "key": "agentRateIdInternational", "value": "" }
   ],
   "auth": {
     "type": "bearer",
@@ -452,17 +454,43 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
         },
         {
-          "name": "Update Agent Profile Rates",
-          "request": {
-            "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"Lagos Main\",\n      \"destinationZone\": \"Abuja Central\",\n      \"price\": 12000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"Nigeria\",\n      \"destinationCountry\": \"United Kingdom\",\n      \"price\": 450000\n    }\n  ]\n}"
+          "name": "Agent profile rates",
+          "item": [
+            {
+              "name": "Add local rate",
+              "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 200 || pm.response.code === 201) {", "  if (j.rate && j.rate.id) pm.collectionVariables.set('agentRateIdLocal', j.rate.id);", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originZone\": \"Lagos Island\",\n  \"destinationZone\": \"Abuja Central\",\n  \"price\": 12000\n}" }, "url": "{{baseUrl}}/agent/rates/local" }
             },
-            "url": "{{baseUrl}}/agent/rates",
-            "description": "Agent JWT (Bearer {{accessToken}}). Replaces agentProfile.rates; empty at signup. Send {\"rates\":[]} to clear. Not the same as Set Shipment Rates (per-shipment)."
-          }
+            {
+              "name": "Add international rate",
+              "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 200 || pm.response.code === 201) {", "  if (j.rate && j.rate.id) pm.collectionVariables.set('agentRateIdInternational', j.rate.id);", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCountry\": \"Nigeria\",\n  \"destinationCountry\": \"United Kingdom\",\n  \"price\": 450000\n}" }, "url": "{{baseUrl}}/agent/rates/international" }
+            },
+            {
+              "name": "Get local rates",
+              "request": { "method": "GET", "url": "{{baseUrl}}/agent/rates/local" }
+            },
+            {
+              "name": "Get international rates",
+              "request": { "method": "GET", "url": "{{baseUrl}}/agent/rates/international" }
+            },
+            {
+              "name": "Update local rate",
+              "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originZone\": \"Lagos Main\",\n  \"destinationZone\": \"Abuja Garki\",\n  \"price\": 15000\n}" }, "url": "{{baseUrl}}/agent/rates/local/{{agentRateIdLocal}}" }
+            },
+            {
+              "name": "Update international rate",
+              "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCountry\": \"Nigeria\",\n  \"destinationCountry\": \"Ghana\",\n  \"price\": 200000\n}" }, "url": "{{baseUrl}}/agent/rates/international/{{agentRateIdInternational}}" }
+            },
+            {
+              "name": "Delete local rate",
+              "request": { "method": "DELETE", "url": "{{baseUrl}}/agent/rates/local/{{agentRateIdLocal}}" }
+            },
+            {
+              "name": "Delete international rate",
+              "request": { "method": "DELETE", "url": "{{baseUrl}}/agent/rates/international/{{agentRateIdInternational}}" }
+            }
+          ]
         },
         {
           "name": "List Open Quotes",

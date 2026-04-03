@@ -1,24 +1,32 @@
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CompleteAgentProfileDto } from './dto/complete-agent-profile.dto';
 import { UpdateAgentDocumentsDto } from './dto/update-agent-documents.dto';
-import { UpdateAgentRatesDto } from './dto/update-agent-rates.dto';
+import { AddInternationalAgentRateDto } from './dto/add-international-agent-rate.dto';
+import { AddLocalAgentRateDto } from './dto/add-local-agent-rate.dto';
+import { UpdateInternationalAgentRateDto } from './dto/update-international-agent-rate.dto';
+import { UpdateLocalAgentRateDto } from './dto/update-local-agent-rate.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
-import { AgentProfileResponse, UserResponse } from './types/user-response.types';
+import {
+  AgentRateLineResponse,
+  AgentProfileResponse,
+  UserResponse,
+} from './types/user-response.types';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { AgentProfile, AgentStatus } from './entities/agent-profile.schema';
+import { AgentProfile, AgentRateLine, AgentStatus } from './entities/agent-profile.schema';
 import { ShipmentRateKind } from '../shipment/entities/shipment.entity';
 import { ListAgentsQueryDto } from './dto/list-agents-query.dto';
 
@@ -97,24 +105,142 @@ export class UserService {
     return this.toUserResponse(user);
   }
 
-  /** Replace `agentProfile.rates` (same shape as shipment rate lines). */
-  async updateAgentRates(agentId: string, dto: UpdateAgentRatesDto) {
+  async addAgentLocalRate(agentId: string, dto: AddLocalAgentRateDto) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const line: AgentRateLine = {
+      type: ShipmentRateKind.Local,
+      originZone: dto.originZone,
+      destinationZone: dto.destinationZone,
+      price: dto.price,
+    };
+    user.agentProfile!.rates = [...(user.agentProfile!.rates ?? []), line];
+    await user.save();
+    const created = user.agentProfile!.rates![user.agentProfile!.rates!.length - 1];
+    return { rate: this.mapAgentRateLine(created) };
+  }
+
+  async addAgentInternationalRate(agentId: string, dto: AddInternationalAgentRateDto) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const line: AgentRateLine = {
+      type: ShipmentRateKind.International,
+      originCountry: dto.originCountry,
+      destinationCountry: dto.destinationCountry,
+      price: dto.price,
+    };
+    user.agentProfile!.rates = [...(user.agentProfile!.rates ?? []), line];
+    await user.save();
+    const created = user.agentProfile!.rates![user.agentProfile!.rates!.length - 1];
+    return { rate: this.mapAgentRateLine(created) };
+  }
+
+  async getAgentLocalRates(agentId: string): Promise<{ items: AgentRateLineResponse[] }> {
+    const user = await this.loadAgentWithProfile(agentId);
+    const items = (user.agentProfile!.rates ?? [])
+      .filter((r) => r.type === ShipmentRateKind.Local)
+      .map((r) => this.mapAgentRateLine(r));
+    return { items };
+  }
+
+  async getAgentInternationalRates(agentId: string): Promise<{ items: AgentRateLineResponse[] }> {
+    const user = await this.loadAgentWithProfile(agentId);
+    const items = (user.agentProfile!.rates ?? [])
+      .filter((r) => r.type === ShipmentRateKind.International)
+      .map((r) => this.mapAgentRateLine(r));
+    return { items };
+  }
+
+  async updateAgentLocalRate(agentId: string, rateId: string, dto: UpdateLocalAgentRateDto) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const sub = this.findRateSubdoc(user, rateId);
+    if (sub.type !== ShipmentRateKind.Local) {
+      throw new BadRequestException('This rate is not a local rate');
+    }
+    if (dto.originZone !== undefined) sub.originZone = dto.originZone;
+    if (dto.destinationZone !== undefined) sub.destinationZone = dto.destinationZone;
+    if (dto.price !== undefined) sub.price = dto.price;
+    await user.save();
+    const updated = this.findRateSubdoc(user, rateId);
+    return { rate: this.mapAgentRateLine(updated) };
+  }
+
+  async updateAgentInternationalRate(
+    agentId: string,
+    rateId: string,
+    dto: UpdateInternationalAgentRateDto,
+  ) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const sub = this.findRateSubdoc(user, rateId);
+    if (sub.type !== ShipmentRateKind.International) {
+      throw new BadRequestException('This rate is not an international rate');
+    }
+    if (dto.originCountry !== undefined) sub.originCountry = dto.originCountry;
+    if (dto.destinationCountry !== undefined) sub.destinationCountry = dto.destinationCountry;
+    if (dto.price !== undefined) sub.price = dto.price;
+    await user.save();
+    const updated = this.findRateSubdoc(user, rateId);
+    return { rate: this.mapAgentRateLine(updated) };
+  }
+
+  async deleteAgentLocalRate(agentId: string, rateId: string) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const sub = this.findRateSubdoc(user, rateId);
+    if (sub.type !== ShipmentRateKind.Local) {
+      throw new BadRequestException('This rate is not a local rate');
+    }
+    user.agentProfile!.rates = (user.agentProfile!.rates ?? []).filter(
+      (r) => r._id?.toString() !== rateId,
+    );
+    await user.save();
+    return { deleted: true };
+  }
+
+  async deleteAgentInternationalRate(agentId: string, rateId: string) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const sub = this.findRateSubdoc(user, rateId);
+    if (sub.type !== ShipmentRateKind.International) {
+      throw new BadRequestException('This rate is not an international rate');
+    }
+    user.agentProfile!.rates = (user.agentProfile!.rates ?? []).filter(
+      (r) => r._id?.toString() !== rateId,
+    );
+    await user.save();
+    return { deleted: true };
+  }
+
+  private async loadAgentWithProfile(agentId: string): Promise<UserDocument> {
     const user = await this.userModel.findById(agentId).exec();
     if (!user || user.role !== Role.Agent) {
-      throw new ForbiddenException('Only agents can update rates');
+      throw new ForbiddenException('Only agents can manage profile rates');
     }
     if (!user.agentProfile) {
       throw new ForbiddenException('Agent profile not initialized');
     }
-    user.agentProfile.rates = dto.rates.map((r) => ({
-      type: r.type,
+    return user;
+  }
+
+  private findRateSubdoc(user: UserDocument, rateId: string): AgentRateLine {
+    if (!Types.ObjectId.isValid(rateId)) {
+      throw new BadRequestException('Invalid rate id');
+    }
+    const rates = user.agentProfile?.rates ?? [];
+    const sub = rates.find((r) => r._id?.toString() === rateId);
+    if (!sub) {
+      throw new NotFoundException('Rate not found');
+    }
+    return sub;
+  }
+
+  private mapAgentRateLine(r: AgentRateLine): AgentRateLineResponse {
+    const id = r._id;
+    return {
+      id: id ? String(id) : '',
+      type: r.type === ShipmentRateKind.Local ? 'local' : 'international',
+      originZone: r.originZone,
+      destinationZone: r.destinationZone,
+      originCountry: r.originCountry,
+      destinationCountry: r.destinationCountry,
       price: r.price,
-      ...(r.type === ShipmentRateKind.Local
-        ? { originZone: r.originZone, destinationZone: r.destinationZone }
-        : { originCountry: r.originCountry, destinationCountry: r.destinationCountry }),
-    }));
-    await user.save();
-    return this.toUserResponse(user);
+    };
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {
@@ -379,7 +505,9 @@ export class UserService {
         loadCapacity: ap.loadCapacity,
         status: ap.status,
         documentUrls: Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : ap.documentUrls,
-        rates: Array.isArray(ap.rates) ? [...ap.rates] : [],
+        rates: Array.isArray(ap.rates)
+          ? ap.rates.map((r) => this.mapAgentRateLine(r as AgentRateLine))
+          : [],
         category: ap.category,
       };
       return { ...base, agentProfile };
