@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ShipmentService } from './shipment.service';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -73,6 +73,12 @@ export class ShipmentController {
   }
 
   @Post(':id/accept-request')
+  @ApiOperation({
+    summary: 'Accept shipment request',
+    description:
+      'Identifies the shipment by URL path `:id` (MongoDB `_id`). No body. `requested` → `processing`. Only `requestedAgentId` may accept.',
+  })
+  @ApiParam({ name: 'id', description: 'Shipment id (`_id`)' })
   @UseGuards(RolesGuard)
   @Roles(Role.Agent)
   acceptShipmentRequest(
@@ -83,6 +89,12 @@ export class ShipmentController {
   }
 
   @Post(':id/decline-request')
+  @ApiOperation({
+    summary: 'Decline shipment request',
+    description:
+      'Identifies the shipment by URL path `:id`. No body. `requested` → `declined`. Only `requestedAgentId` may decline.',
+  })
+  @ApiParam({ name: 'id', description: 'Shipment id (`_id`)' })
   @UseGuards(RolesGuard)
   @Roles(Role.Agent)
   declineShipmentRequest(
@@ -93,6 +105,8 @@ export class ShipmentController {
   }
 
   @Patch(':id/status')
+  @ApiOperation({ summary: 'Update shipment operational status (assigned agent)' })
+  @ApiParam({ name: 'id', description: 'Shipment id (`_id`)' })
   @UseGuards(RolesGuard)
   @Roles(Role.Agent)
   updateShipmentStatus(

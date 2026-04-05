@@ -7,7 +7,7 @@
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000" },
     { "key": "accessToken", "value": "" },
-    { "key": "shipmentId", "value": "" },
+    { "key": "shipmentId", "value": "", "description": "Shipment Mongo _id for path /shipments/:id/... — set from Create Shipment or Send Shipment Request response (_id), or paste manually." },
     { "key": "quoteId", "value": "" },
     { "key": "userId", "value": "" },
     { "key": "agentId", "value": "" },
@@ -530,12 +530,12 @@
         },
         {
           "name": "Accept Shipment Request (Agent)",
-          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/accept-request", "description": "Agent JWT. requested → processing. Only the requestedAgentId can accept." },
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/accept-request", "description": "Agent JWT. Shipment id is IN THE URL (not the body). Set collection variable `shipmentId` to the shipment `_id` (e.g. from Send Shipment Request 201 response). If `shipmentId` is empty you get `/shipments//accept-request` — invalid." },
           "response": []
         },
         {
           "name": "Decline Shipment Request (Agent)",
-          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/decline-request", "description": "Agent JWT. requested → declined." },
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "" }, "url": "{{baseUrl}}/shipments/{{shipmentId}}/decline-request", "description": "Agent JWT. Same as accept: put shipment `_id` in the path via `{{shipmentId}}`. No body." },
           "response": []
         },
         {
