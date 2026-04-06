@@ -4,6 +4,7 @@ import { Shipment, ShipmentSchema } from './entities/shipment.entity';
 import { User, UserSchema } from '../user/entities/user.entity';
 import { ShipmentService } from './shipment.service';
 import { ShipmentController } from './shipment.controller';
+import { EmailModule } from '../../integrations/email/email.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { ShipmentController } from './shipment.controller';
       { name: Shipment.name, schema: ShipmentSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    EmailModule,
   ],
   controllers: [ShipmentController],
   providers: [ShipmentService],

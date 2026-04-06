@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -31,6 +31,8 @@ import {
   UpdateAgentStatusDto,
   UpdateQuoteStatusDto,
 } from './dto/update-agent-status.dto';
+import { SendInvoiceDto } from '../shipment/dto/send-invoice.dto';
+import { AssignShipmentDto } from '../shipment/dto/assign-shipment.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -104,6 +106,38 @@ export class AdminController {
   @Get('order-history')
   getOrderHistory(@Query() query: AdminShipmentsQueryDto) {
     return this.adminService.getOrderHistory(query);
+  }
+
+  @Post('shipments/:id/send-invoice')
+  @ApiOperation({
+    summary: 'Email invoice to shipper',
+    description:
+      'Stores parcel line items, total, and Paystack link on the shipment and emails the shipper.',
+  })
+  sendShipmentInvoice(
+    @Param('id') id: string,
+    @Body() dto: SendInvoiceDto,
+  ) {
+    return this.adminService.sendShipmentInvoice(id, dto);
+  }
+
+  @Patch('shipments/:id/mark-paid')
+  @ApiOperation({
+    summary: 'Record payment received',
+    description: 'Sets paymentStatus and status to paid (e.g. after Paystack confirmation).',
+  })
+  markShipmentPaid(@Param('id') id: string) {
+    return this.adminService.markShipmentPaid(id);
+  }
+
+  @Patch('shipments/:id/assign')
+  @ApiOperation({
+    summary: 'Assign agent after payment',
+    description:
+      'Requires paymentStatus paid. Sets assignedAgentId and moves status to processing.',
+  })
+  assignShipment(@Param('id') id: string, @Body() dto: AssignShipmentDto) {
+    return this.adminService.assignShipment(id, dto);
   }
 
   @Patch('shipments/:id')

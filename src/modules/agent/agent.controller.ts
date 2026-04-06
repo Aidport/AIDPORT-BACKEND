@@ -39,6 +39,19 @@ export class AgentController {
     return this.agentService.getMe(agentId);
   }
 
+  @Get('shipments')
+  @ApiOperation({
+    summary: 'My assigned shipments',
+    description:
+      'Lists shipments where this agent is set as `assignedAgentId` (admin assigns after payment).',
+  })
+  listMyShipments(
+    @CurrentUser('id') agentId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.agentService.listAssignedShipments(agentId, pagination);
+  }
+
   /** Step 2: submit company profile after POST /auth/signup/agent (step 1). */
   @Patch('profile')
   completeProfile(

@@ -68,6 +68,10 @@ export class AgentService {
     return this.quotesService.findOpenForAgents(pagination);
   }
 
+  listAssignedShipments(agentId: string, pagination: PaginationDto) {
+    return this.shipmentService.findAssignedByAgent(agentId, pagination);
+  }
+
   async acceptQuote(
     agentId: string,
     quoteId: string,

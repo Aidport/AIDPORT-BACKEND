@@ -10,7 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ShipmentCategory } from '../entities/shipment.entity';
+import { PickupMethod, ShipmentCategory } from '../entities/shipment.entity';
 
 /** Address DTO (TShip-style) */
 export class AddressDto {
@@ -134,6 +134,10 @@ export class CreateShipmentDto {
   @IsOptional()
   @IsBoolean()
   urgency?: boolean;
+
+  @IsOptional()
+  @IsEnum(PickupMethod)
+  pickupMethod?: PickupMethod;
 
   @IsOptional()
   @IsString({ each: true })

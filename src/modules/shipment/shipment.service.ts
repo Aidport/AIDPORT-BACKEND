@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
+  PaymentStatus,
   Shipment,
   ShipmentDocument,
   ShipmentRateKind,
@@ -20,6 +21,8 @@ import { SendShipmentRequestDto } from './dto/send-shipment-request.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { UpdateShipmentStatusDto } from './dto/update-shipment-status.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { EmailService } from '../../integrations/email/email.service';
+import { SendInvoiceDto } from './dto/send-invoice.dto';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -37,7 +40,22 @@ export class ShipmentService {
   constructor(
     @InjectModel(Shipment.name) private shipmentModel: Model<ShipmentDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly emailService: EmailService,
   ) {}
+
+  /** Assigned agent is `assignedAgentId` (admin flow) or legacy `acceptedBy` only. */
+  private isAssignedAgent(shipment: ShipmentDocument, agentId: string): boolean {
+    if (shipment.assignedAgentId?.toString() === agentId) {
+      return true;
+    }
+    if (
+      shipment.acceptedBy?.toString() === agentId &&
+      !shipment.assignedAgentId
+    ) {
+      return true;
+    }
+    return false;
+  }
 
   async create(createShipmentDto: CreateShipmentDto, userId: string) {
     const shipment = new this.shipmentModel({
@@ -111,6 +129,7 @@ export class ShipmentService {
                 ShipmentStatus.InTransit,
                 ShipmentStatus.PickedUp,
                 ShipmentStatus.Delayed,
+                ShipmentStatus.Paid,
               ],
             },
           });
@@ -153,6 +172,7 @@ export class ShipmentService {
       if (filters.userIdsForSearch?.length) {
         or.push({ createdBy: { $in: filters.userIdsForSearch } });
         or.push({ acceptedBy: { $in: filters.userIdsForSearch } });
+        or.push({ assignedAgentId: { $in: filters.userIdsForSearch } });
       }
       and.push({ $or: or });
     }
@@ -165,6 +185,7 @@ export class ShipmentService {
         .find(query)
         .populate('createdBy', 'name email city country')
         .populate('acceptedBy', 'name email agentProfile')
+        .populate('assignedAgentId', 'name email agentProfile')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -209,12 +230,35 @@ export class ShipmentService {
     };
   }
 
+  /** Shipments where admin set `assignedAgentId` to this agent. */
+  async findAssignedByAgent(agentId: string, pagination: PaginationDto) {
+    const { page = 1, limit = 10 } = pagination;
+    const oid = new Types.ObjectId(agentId);
+    const query = { assignedAgentId: oid };
+    const [items, total] = await Promise.all([
+      this.shipmentModel
+        .find(query)
+        .populate('createdBy', 'name email')
+        .populate('assignedAgentId', 'name email')
+        .sort({ urgency: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      this.shipmentModel.countDocuments(query),
+    ]);
+    return {
+      items,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async findOne(id: string) {
     const shipment = await this.shipmentModel
       .findById(id)
       .populate('createdBy', 'name email')
       .populate('requestedAgentId', 'name email agentProfile')
       .populate('acceptedBy', 'name email')
+      .populate('assignedAgentId', 'name email agentProfile')
       .exec();
     if (!shipment) {
       throw new NotFoundException('Shipment not found');
@@ -305,7 +349,7 @@ export class ShipmentService {
     if (!shipment) {
       throw new NotFoundException('Shipment not found');
     }
-    if (shipment.acceptedBy?.toString() !== agentId) {
+    if (!this.isAssignedAgent(shipment, agentId)) {
       throw new ForbiddenException('Only the assigned agent can update shipment status');
     }
     if (shipment.status === ShipmentStatus.Delivered) {
@@ -386,17 +430,21 @@ export class ShipmentService {
     if (!shipment) {
       throw new NotFoundException('Shipment not found');
     }
-    if (shipment.acceptedBy?.toString() !== agentId) {
+    if (!this.isAssignedAgent(shipment, agentId)) {
       throw new ForbiddenException('Only the assigned agent can add or update rates');
     }
     shipment.rates = dto.rates.map((r) => ({
       type: r.type,
       price: r.price,
+      ...(r.basicPrice !== undefined ? { basicPrice: r.basicPrice } : {}),
       ...(r.type === ShipmentRateKind.Local
         ? { originZone: r.originZone, destinationZone: r.destinationZone }
         : { originCountry: r.originCountry, destinationCountry: r.destinationCountry }),
     }));
-    shipment.amount = dto.rates.reduce((sum, r) => sum + r.price, 0);
+    shipment.amount = dto.rates.reduce(
+      (sum, r) => sum + r.price + (r.basicPrice ?? 0),
+      0,
+    );
     if (dto.currency !== undefined) shipment.currency = dto.currency;
     if (dto.carrierName !== undefined) shipment.carrierName = dto.carrierName;
     if (dto.carrierSlug !== undefined) shipment.carrierSlug = dto.carrierSlug;
@@ -420,7 +468,7 @@ export class ShipmentService {
     if (!shipment) {
       throw new NotFoundException('Shipment not found');
     }
-    if (shipment.acceptedBy?.toString() !== agentId) {
+    if (!this.isAssignedAgent(shipment, agentId)) {
       throw new ForbiddenException('Only the assigned agent can mark as delivered');
     }
     shipment.status = ShipmentStatus.Delivered;
@@ -489,4 +537,112 @@ export class ShipmentService {
       ],
     };
   }
+
+  /** Admin: persist invoice snapshot and email shipper with Paystack link. */
+  async sendInvoiceToShipper(shipmentId: string, dto: SendInvoiceDto) {
+    const shipment = await this.shipmentModel.findById(shipmentId).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    const shipper = await this.userModel.findById(shipment.createdBy).exec();
+    if (!shipper?.email) {
+      throw new BadRequestException('Shipper has no email on file');
+    }
+    shipment.invoiceLineItems = dto.parcelItems.map((p) => ({
+      name: p.name,
+      quantity: p.quantity,
+      price: p.price,
+    }));
+    shipment.invoiceTotalPrice = dto.totalPrice;
+    shipment.paymentLink = dto.paymentLink;
+    shipment.invoiceSentAt = new Date();
+    await shipment.save();
+
+    if (!this.emailService.isConfigured()) {
+      throw new BadRequestException(
+        'Invoice saved but SMTP is not configured (set SMTP_USER / SMTP_PASS); email was not sent',
+      );
+    }
+
+    const rows = dto.parcelItems
+      .map(
+        (p) =>
+          `<tr><td>${escapeHtml(p.name)}</td><td>${p.quantity ?? '—'}</td><td>${p.price}</td></tr>`,
+      )
+      .join('');
+    const html = `
+      <p>Hello ${escapeHtml(shipper.name ?? '')},</p>
+      <p>Your shipment invoice for <strong>${escapeHtml(shipment.cargoName)}</strong> (${escapeHtml(
+        shipment.originCity,
+      )} → ${escapeHtml(shipment.destinationCity)}) is ready.</p>
+      <table border="1" cellpadding="8" style="border-collapse:collapse">
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p><strong>Total: ${dto.totalPrice}</strong></p>
+      <p><a href="${dto.paymentLink.replace(/"/g, '&quot;')}">Pay now</a></p>
+    `;
+    await this.emailService.sendMail({
+      to: shipper.email,
+      subject: `Invoice — ${shipment.cargoName}`,
+      html,
+      text: `Total ${dto.totalPrice}. Pay: ${dto.paymentLink}`,
+    });
+
+    return this.shipmentModel
+      .findById(shipmentId)
+      .populate('createdBy', 'name email')
+      .populate('assignedAgentId', 'name email')
+      .exec();
+  }
+
+  /** Admin: mark shipment paid (e.g. after Paystack confirmation). */
+  async markShipmentPaid(shipmentId: string) {
+    const shipment = await this.shipmentModel.findById(shipmentId).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    shipment.paymentStatus = PaymentStatus.Paid;
+    shipment.status = ShipmentStatus.Paid;
+    this.addEvent(shipment, ShipmentStatus.Paid, 'Payment received');
+    return shipment.save();
+  }
+
+  /** Admin: assign agent after payment; moves status to processing. */
+  async assignAgentAfterPayment(
+    shipmentId: string,
+    assignedAgentId: string,
+  ) {
+    const agent = await this.userModel.findById(assignedAgentId).exec();
+    if (!agent || agent.role !== Role.Agent) {
+      throw new BadRequestException('assignedAgentId must be a valid agent user');
+    }
+    const shipment = await this.shipmentModel.findById(shipmentId).exec();
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+    if (shipment.paymentStatus !== PaymentStatus.Paid) {
+      throw new ForbiddenException('Shipment must be paid before assigning an agent');
+    }
+    shipment.assignedAgentId = new Types.ObjectId(assignedAgentId);
+    shipment.acceptedBy = new Types.ObjectId(assignedAgentId);
+    shipment.status = ShipmentStatus.Processing;
+    this.addEvent(
+      shipment,
+      ShipmentStatus.Processing,
+      'Agent assigned by admin',
+      shipment.originCity && shipment.destinationCity
+        ? `${shipment.originCity} → ${shipment.destinationCity}`
+        : undefined,
+    );
+    return shipment.save();
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

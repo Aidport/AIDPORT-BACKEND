@@ -4,6 +4,7 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ShipmentService } from './shipment.service';
 import { Shipment, ShipmentRateKind, ShipmentStatus } from './entities/shipment.entity';
 import { User } from '../user/entities/user.entity';
+import { EmailService } from '../../integrations/email/email.service';
 import { Types } from 'mongoose';
 
 describe('ShipmentService', () => {
@@ -48,6 +49,13 @@ describe('ShipmentService', () => {
             findById: jest.fn().mockReturnValue({
               exec: jest.fn().mockResolvedValue({ role: 'agent' }),
             }),
+          },
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendMail: jest.fn(),
+            isConfigured: jest.fn().mockReturnValue(false),
           },
         },
       ],

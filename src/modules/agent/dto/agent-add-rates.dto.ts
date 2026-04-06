@@ -43,7 +43,14 @@ export class ShipmentRateLineDto {
   @MaxLength(200)
   destinationCountry?: string;
 
-  @ApiProperty({ example: 12000 })
+  @ApiPropertyOptional({ example: 12000, description: 'Base / list price for the route' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  basicPrice?: number;
+
+  @ApiProperty({ example: 5000 })
   @Type(() => Number)
   @IsNumber()
   @Min(0)

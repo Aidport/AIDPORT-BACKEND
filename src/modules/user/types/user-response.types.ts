@@ -13,6 +13,7 @@ export interface AgentRateLineResponse {
   destinationZone?: string;
   originCountry?: string;
   destinationCountry?: string;
+  basicPrice?: number;
   price: number;
 }
 

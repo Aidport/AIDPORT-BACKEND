@@ -25,6 +25,18 @@ export enum ShipmentStatus {
   Delayed = 'delayed',
   Delivered = 'delivered',
   Cancelled = 'cancelled',
+  /** Payment received (admin / Paystack); assign agent next */
+  Paid = 'paid',
+}
+
+export enum PickupMethod {
+  Terminal = 'terminal',
+  Dispatch = 'dispatch',
+}
+
+export enum PaymentStatus {
+  Pending = 'pending',
+  Paid = 'paid',
 }
 
 /** Address for pickup or delivery (TShip-style) */
@@ -103,6 +115,21 @@ const ShipmentAddressSchema = SchemaFactory.createForClass(ShipmentAddress);
 const ParcelItemSchema = SchemaFactory.createForClass(ParcelItem);
 const ShipmentEventSchema = SchemaFactory.createForClass(ShipmentEvent);
 
+/** Line stored on shipment after admin sends invoice */
+@Schema({ _id: false })
+export class InvoiceLineItem {
+  @Prop({ required: true })
+  name: string;
+
+  @Prop()
+  quantity?: number;
+
+  @Prop({ required: true })
+  price: number;
+}
+
+const InvoiceLineItemSchema = SchemaFactory.createForClass(InvoiceLineItem);
+
 export enum ShipmentRateKind {
   Local = 'local',
   International = 'international',
@@ -125,6 +152,10 @@ export class ShipmentRateLine {
 
   @Prop()
   destinationCountry?: string;
+
+  /** Base / list price for the route */
+  @Prop()
+  basicPrice?: number;
 
   @Prop({ required: true })
   price: number;
@@ -173,6 +204,12 @@ export class Shipment {
   @Prop({ default: false })
   urgency: boolean;
 
+  @Prop({ enum: PickupMethod })
+  pickupMethod?: PickupMethod;
+
+  @Prop({ default: PaymentStatus.Pending, enum: PaymentStatus })
+  paymentStatus: PaymentStatus;
+
   @Prop({ default: ShipmentStatus.Pending, enum: ShipmentStatus })
   status: ShipmentStatus;
 
@@ -185,6 +222,22 @@ export class Shipment {
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   acceptedBy?: Types.ObjectId;
+
+  /** Set by admin after payment (primary “assigned agent” for this shipment) */
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  assignedAgentId?: Types.ObjectId;
+
+  @Prop({ type: [InvoiceLineItemSchema], default: [] })
+  invoiceLineItems?: InvoiceLineItem[];
+
+  @Prop()
+  invoiceTotalPrice?: number;
+
+  @Prop()
+  paymentLink?: string;
+
+  @Prop()
+  invoiceSentAt?: Date;
 
   @Prop()
   deliveredAt?: Date;

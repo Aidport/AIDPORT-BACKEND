@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: agent signup is two steps (POST /auth/signup/agent with name/email/password, then PATCH /agent/profile with company details). Public GET /agents. User, Agent portal, Admin, shipments, quotes, uploads",
+    "description": "Aidport NestJS API - Auth: agent signup is two steps (POST /auth/signup/agent with name/email/password, then PATCH /agent/profile with company details). Public GET /agents. Shipments: optional pickupMethod terminal|dispatch; rates support basicPrice + price. Admin: POST /admin/shipments/:id/send-invoice (email + Paystack link), PATCH mark-paid, PATCH assign (after payment). Agent: GET /agent/shipments (assigned only). User, Agent portal, Admin, quotes, uploads",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -389,6 +389,34 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/admin/order-history?page=1&limit=10" }
         },
         {
+          "name": "Send Invoice (email shipper)",
+          "description": "Admin JWT. Persists parcel line items, totalPrice, paymentLink on the shipment and emails the shipper. Configure SMTP_USER, SMTP_PASS (and optional SMTP_HOST) in .env.",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parcelItems\": [\n    { \"name\": \"Box A\", \"quantity\": 2, \"price\": 15000 },\n    { \"name\": \"Box B\", \"price\": 10000 }\n  ],\n  \"totalPrice\": 45000,\n  \"paymentLink\": \"https://paystack.com/pay/your-page-reference\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}/send-invoice"
+          }
+        },
+        {
+          "name": "Mark Shipment Paid",
+          "description": "Admin JWT. Sets paymentStatus and status to paid (e.g. after Paystack webhook or manual confirmation).",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}/mark-paid" }
+        },
+        {
+          "name": "Assign Agent (after payment)",
+          "description": "Admin JWT. Requires shipment.paymentStatus === paid. Sets assignedAgentId, acceptedBy, and status to processing. Use collection variable agentId or paste an agent user _id.",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"assignedAgentId\": \"{{agentId}}\"\n}" },
+            "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}/assign"
+          }
+        },
+        {
           "name": "Patch Shipment (Admin)",
           "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"delayed\",\n  \"amount\": 15000,\n  \"carrierName\": \"Aidport Standard\"\n}" }, "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}" }
         },
@@ -454,17 +482,22 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
         },
         {
+          "name": "My assigned shipments",
+          "description": "Agent JWT. Lists shipments where assignedAgentId is this agent (set by admin after payment).",
+          "request": { "method": "GET", "url": "{{baseUrl}}/agent/shipments?page=1&limit=10" }
+        },
+        {
           "name": "Agent profile rates",
           "item": [
             {
               "name": "Add local rate",
               "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 200 || pm.response.code === 201) {", "  if (j.rate && j.rate.id) pm.collectionVariables.set('agentRateIdLocal', j.rate.id);", "}"] } }],
-              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originZone\": \"Lagos Island\",\n  \"destinationZone\": \"Abuja Central\",\n  \"price\": 12000\n}" }, "url": "{{baseUrl}}/agent/rates/local" }
+              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originZone\": \"Lagos Island\",\n  \"destinationZone\": \"Abuja Central\",\n  \"basicPrice\": 12000,\n  \"price\": 5000\n}" }, "url": "{{baseUrl}}/agent/rates/local" }
             },
             {
               "name": "Add international rate",
               "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 200 || pm.response.code === 201) {", "  if (j.rate && j.rate.id) pm.collectionVariables.set('agentRateIdInternational', j.rate.id);", "}"] } }],
-              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCountry\": \"Nigeria\",\n  \"destinationCountry\": \"United Kingdom\",\n  \"price\": 450000\n}" }, "url": "{{baseUrl}}/agent/rates/international" }
+              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCountry\": \"Nigeria\",\n  \"destinationCountry\": \"United Kingdom\",\n  \"basicPrice\": 400000,\n  \"price\": 50000\n}" }, "url": "{{baseUrl}}/agent/rates/international" }
             },
             {
               "name": "Get local rates",
@@ -476,7 +509,7 @@
             },
             {
               "name": "Update local rate",
-              "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originZone\": \"Lagos Main\",\n  \"destinationZone\": \"Abuja Garki\",\n  \"price\": 15000\n}" }, "url": "{{baseUrl}}/agent/rates/local/{{agentRateIdLocal}}" }
+              "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originZone\": \"Lagos Main\",\n  \"destinationZone\": \"Abuja Garki\",\n  \"basicPrice\": 13000,\n  \"price\": 6000\n}" }, "url": "{{baseUrl}}/agent/rates/local/{{agentRateIdLocal}}" }
             },
             {
               "name": "Update international rate",
@@ -502,7 +535,8 @@
         },
         {
           "name": "Set Shipment Rates",
-          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"\",\n      \"destinationZone\": \"\",\n      \"price\": 12000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"\",\n      \"destinationCountry\": \"\",\n      \"price\": 12000\n    }\n  ],\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
+          "description": "Assigned agent only. Each rate line may include basicPrice (base/list) and price; amount on shipment = sum(price + basicPrice per line).",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"Lagos Island\",\n      \"destinationZone\": \"Abuja Central\",\n      \"basicPrice\": 12000,\n      \"price\": 5000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"Nigeria\",\n      \"destinationCountry\": \"Ghana\",\n      \"basicPrice\": 80000,\n      \"price\": 20000\n    }\n  ],\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
         }
       ]
     },
@@ -512,7 +546,7 @@
         {
           "name": "Create Shipment",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('shipmentId', pm.response.json()._id); }"] } }],
-          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments" },
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"pickupMethod\": \"terminal\",\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments" },
           "response": [{
             "name": "201 Created",
             "status": "Created",
@@ -525,7 +559,7 @@
         {
           "name": "Send Shipment Request (to agent)",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('shipmentId', pm.response.json()._id); }"] } }],
-          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments/request", "description": "Shipper JWT. Same body as Create Shipment plus agentId. Sets status to requested. Set collection variable agentId to the target agent's user _id." },
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"pickupMethod\": \"dispatch\",\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments/request", "description": "Shipper JWT. Same body as Create Shipment plus agentId. Optional pickupMethod: terminal | dispatch. Sets status to requested. Set collection variable agentId to the target agent's user _id." },
           "response": []
         },
         {

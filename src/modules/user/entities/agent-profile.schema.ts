@@ -22,6 +22,9 @@ export class AgentRateLine {
   @Prop()
   destinationCountry?: string;
 
+  @Prop()
+  basicPrice?: number;
+
   @Prop({ required: true })
   price: number;
 }

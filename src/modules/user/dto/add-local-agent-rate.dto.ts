@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class AddLocalAgentRateDto {
   @ApiProperty({ example: 'Lagos Island' })
@@ -15,7 +15,14 @@ export class AddLocalAgentRateDto {
   @MaxLength(300)
   destinationZone: string;
 
-  @ApiProperty({ example: 12000 })
+  @ApiProperty({ example: 12000, required: false, description: 'Base / list price' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  basicPrice?: number;
+
+  @ApiProperty({ example: 5000 })
   @Type(() => Number)
   @IsNumber()
   @Min(0)

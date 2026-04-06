@@ -22,5 +22,12 @@ export class UpdateLocalAgentRateDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  basicPrice?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   price?: number;
 }

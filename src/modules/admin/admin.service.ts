@@ -28,6 +28,8 @@ import {
   UpdateAgentStatusDto,
 } from './dto/update-agent-status.dto';
 import { UpdateShipmentDto } from '../shipment/dto/update-shipment.dto';
+import { SendInvoiceDto } from '../shipment/dto/send-invoice.dto';
+import { AssignShipmentDto } from '../shipment/dto/assign-shipment.dto';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -499,5 +501,17 @@ export class AdminService {
         count: s.count,
       })),
     };
+  }
+
+  sendShipmentInvoice(id: string, dto: SendInvoiceDto) {
+    return this.shipmentService.sendInvoiceToShipper(id, dto);
+  }
+
+  assignShipment(id: string, dto: AssignShipmentDto) {
+    return this.shipmentService.assignAgentAfterPayment(id, dto.assignedAgentId);
+  }
+
+  markShipmentPaid(id: string) {
+    return this.shipmentService.markShipmentPaid(id);
   }
 }

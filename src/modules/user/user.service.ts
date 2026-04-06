@@ -111,6 +111,7 @@ export class UserService {
       type: ShipmentRateKind.Local,
       originZone: dto.originZone,
       destinationZone: dto.destinationZone,
+      ...(dto.basicPrice !== undefined ? { basicPrice: dto.basicPrice } : {}),
       price: dto.price,
     };
     user.agentProfile!.rates = [...(user.agentProfile!.rates ?? []), line];
@@ -125,6 +126,7 @@ export class UserService {
       type: ShipmentRateKind.International,
       originCountry: dto.originCountry,
       destinationCountry: dto.destinationCountry,
+      ...(dto.basicPrice !== undefined ? { basicPrice: dto.basicPrice } : {}),
       price: dto.price,
     };
     user.agentProfile!.rates = [...(user.agentProfile!.rates ?? []), line];
@@ -157,6 +159,7 @@ export class UserService {
     }
     if (dto.originZone !== undefined) sub.originZone = dto.originZone;
     if (dto.destinationZone !== undefined) sub.destinationZone = dto.destinationZone;
+    if (dto.basicPrice !== undefined) sub.basicPrice = dto.basicPrice;
     if (dto.price !== undefined) sub.price = dto.price;
     await user.save();
     const updated = this.findRateSubdoc(user, rateId);
@@ -175,6 +178,7 @@ export class UserService {
     }
     if (dto.originCountry !== undefined) sub.originCountry = dto.originCountry;
     if (dto.destinationCountry !== undefined) sub.destinationCountry = dto.destinationCountry;
+    if (dto.basicPrice !== undefined) sub.basicPrice = dto.basicPrice;
     if (dto.price !== undefined) sub.price = dto.price;
     await user.save();
     const updated = this.findRateSubdoc(user, rateId);
@@ -239,6 +243,7 @@ export class UserService {
       destinationZone: r.destinationZone,
       originCountry: r.originCountry,
       destinationCountry: r.destinationCountry,
+      basicPrice: r.basicPrice,
       price: r.price,
     };
   }
