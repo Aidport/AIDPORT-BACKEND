@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: agent signup is two steps (POST /auth/signup/agent with name/email/password, then PATCH /agent/profile with company details). Public GET /agents. Shipments: optional pickupMethod terminal|dispatch; rates support basicPrice + price. Admin: POST /admin/shipments/:id/send-invoice (email + Paystack link), PATCH mark-paid, PATCH assign (after payment). Agent: GET /agent/shipments (assigned only). User, Agent portal, Admin, quotes, uploads",
+    "description": "Aidport NestJS API - Auth: agent signup is two steps (POST /auth/signup/agent with name/email/password, then PATCH /agent/profile with company details). Public GET /agents. Shipments: optional pickupMethod terminal|dispatch; rates support basicPrice + price. Admin: POST /admin/shipments/:id/send-invoice (email + Paystack link), PATCH mark-paid, PATCH assign (after payment). Agent: GET /agent/shipments (assigned only). Upload CRUD: GET /upload/resource, DELETE /upload, POST /upload/remove-batch, PATCH /upload/gallery (+ POST single/multiple). User, Agent portal, Admin, quotes",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -12,7 +12,8 @@
     { "key": "userId", "value": "" },
     { "key": "agentId", "value": "" },
     { "key": "agentRateIdLocal", "value": "" },
-    { "key": "agentRateIdInternational", "value": "" }
+    { "key": "agentRateIdInternational", "value": "" },
+    { "key": "uploadUrl", "value": "", "description": "Cloudinary delivery URL from upload response — for delete / resource GET tests" }
   ],
   "auth": {
     "type": "bearer",
@@ -692,6 +693,7 @@
       "item": [
         {
           "name": "Upload Single File",
+          "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 201 && j?.url) { pm.collectionVariables.set('uploadUrl', j.url); }"], "type": "text/javascript" } }],
           "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] }, "url": "{{baseUrl}}/upload/single" },
           "response": [{
             "name": "201 Created",
@@ -704,6 +706,7 @@
         },
         {
           "name": "Upload Multiple Files",
+          "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 201 && Array.isArray(j) && j[0]?.url) { pm.collectionVariables.set('uploadUrl', j[0].url); }"], "type": "text/javascript" } }],
           "request": { "method": "POST", "body": { "mode": "formdata", "formdata": [{ "key": "files", "type": "file", "src": "" }] }, "url": "{{baseUrl}}/upload/multiple" },
           "response": [{
             "name": "201 Created",
@@ -713,6 +716,47 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": "[\n  {\n    \"filename\": \"aidport/abc123xyz\",\n    \"originalName\": \"photo1.jpg\",\n    \"url\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/abc123xyz.jpg\",\n    \"path\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/abc123xyz.jpg\"\n  },\n  {\n    \"filename\": \"aidport/def456uvw\",\n    \"originalName\": \"photo2.png\",\n    \"url\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/def456uvw.png\",\n    \"path\": \"https://res.cloudinary.com/xxx/image/upload/v123/aidport/def456uvw.png\"\n  }\n]"
           }]
+        },
+        {
+          "name": "Get resource (Cloudinary metadata)",
+          "description": "Read — GET metadata for a delivery URL in your Cloudinary account.",
+          "request": { "method": "GET", "url": "{{baseUrl}}/upload/resource?url={{uploadUrl}}" }
+        },
+        {
+          "name": "Delete one (Cloudinary)",
+          "description": "Delete — removes asset by URL from Cloudinary.",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"{{uploadUrl}}\"\n}" },
+            "url": "{{baseUrl}}/upload"
+          }
+        },
+        {
+          "name": "Remove batch (Cloudinary)",
+          "description": "Delete — multiple URLs; returns deleted + failed per URL.",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"urls\": [\"{{uploadUrl}}\"]\n}" },
+            "url": "{{baseUrl}}/upload/remove-batch"
+          }
+        },
+        {
+          "name": "Patch gallery (remove + add)",
+          "description": "Update — multipart: files (optional), existingUrls & removeUrls as JSON strings. Removes from Cloudinary first, then appends new uploads. Example: existingUrls = [\"https://...\"] removeUrls = [\"https://...old...\"]",
+          "request": {
+            "method": "PATCH",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "existingUrls", "value": "[]", "type": "text", "description": "JSON array of URLs to keep" },
+                { "key": "removeUrls", "value": "[]", "type": "text", "description": "JSON array of URLs to delete from Cloudinary" },
+                { "key": "files", "type": "file", "src": "", "description": "Optional new images" }
+              ]
+            },
+            "url": "{{baseUrl}}/upload/gallery"
+          }
         }
       ]
     }
