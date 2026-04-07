@@ -5,6 +5,7 @@ import type { Transporter } from 'nodemailer';
 import {
   buildPasswordChangedEmail,
   buildPasswordResetEmail,
+  buildShipmentInvoiceAgentNotifyEmail,
   buildShipmentInvoiceEmail,
   buildVerificationEmail,
   type InvoiceParcelLine,
@@ -106,6 +107,33 @@ export class EmailService {
       originCity: params.originCity,
       destinationCity: params.destinationCity,
       parcelItems: params.parcelItems,
+      totalPrice: params.totalPrice,
+      paymentLink: params.paymentLink,
+    });
+    await this.sendMail({ to: params.to, subject, html, text });
+  }
+
+  /** Agent copy: invoice was issued; customer receives the payable invoice separately. */
+  async sendShipmentInvoiceAgentNotifyEmail(params: {
+    to: string;
+    agentName: string;
+    shipmentId: string;
+    cargoName: string;
+    originCity: string;
+    destinationCity: string;
+    shipperName: string;
+    shipperEmail: string;
+    totalPrice: number;
+    paymentLink: string;
+  }): Promise<void> {
+    const { subject, html, text } = buildShipmentInvoiceAgentNotifyEmail({
+      agentName: params.agentName,
+      shipmentId: params.shipmentId,
+      cargoName: params.cargoName,
+      originCity: params.originCity,
+      destinationCity: params.destinationCity,
+      shipperName: params.shipperName,
+      shipperEmail: params.shipperEmail,
       totalPrice: params.totalPrice,
       paymentLink: params.paymentLink,
     });

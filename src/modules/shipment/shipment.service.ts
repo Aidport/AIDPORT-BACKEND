@@ -538,7 +538,7 @@ export class ShipmentService {
     };
   }
 
-  /** Admin: persist invoice snapshot and email shipper with Paystack link. */
+  /** Admin: persist invoice snapshot, email shipper (payment link), and notify linked agent if any. */
   async sendInvoiceToShipper(shipmentId: string, dto: SendInvoiceDto) {
     const shipment = await this.shipmentModel.findById(shipmentId).exec();
     if (!shipment) {
@@ -574,6 +574,30 @@ export class ShipmentService {
       totalPrice: dto.totalPrice,
       paymentLink: dto.paymentLink,
     });
+
+    const agentRef =
+      shipment.assignedAgentId ?? shipment.acceptedBy ?? shipment.requestedAgentId;
+    if (agentRef) {
+      const agent = await this.userModel.findById(agentRef).exec();
+      if (
+        agent?.email &&
+        agent.role === Role.Agent &&
+        agent.email.toLowerCase() !== shipper.email.toLowerCase()
+      ) {
+        await this.emailService.sendShipmentInvoiceAgentNotifyEmail({
+          to: agent.email,
+          agentName: agent.name ?? 'there',
+          shipmentId: String(shipment._id),
+          cargoName: shipment.cargoName,
+          originCity: shipment.originCity,
+          destinationCity: shipment.destinationCity,
+          shipperName: shipper.name ?? 'Customer',
+          shipperEmail: shipper.email,
+          totalPrice: dto.totalPrice,
+          paymentLink: dto.paymentLink,
+        });
+      }
+    }
 
     return this.shipmentModel
       .findById(shipmentId)

@@ -112,7 +112,7 @@ export class AdminController {
   @ApiOperation({
     summary: 'Email invoice to shipper',
     description:
-      'Stores parcel line items, total, and Paystack link on the shipment and emails the shipper.',
+      'Stores parcel line items, total, and Paystack link on the shipment; emails the shipper (customer) with the payment link, and emails the linked agent (assignedAgentId, else acceptedBy, else requestedAgentId) a notification with shipment id and customer details when that agent differs from the shipper.',
   })
   sendShipmentInvoice(
     @Param('id') id: string,

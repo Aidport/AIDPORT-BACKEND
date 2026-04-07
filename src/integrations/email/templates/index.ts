@@ -9,3 +9,4 @@ export {
   buildShipmentInvoiceEmail,
   type InvoiceParcelLine,
 } from './shipment-invoice.template';
+export { buildShipmentInvoiceAgentNotifyEmail } from './shipment-invoice-agent-notify.template';
