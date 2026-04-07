@@ -564,29 +564,15 @@ export class ShipmentService {
       );
     }
 
-    const rows = dto.parcelItems
-      .map(
-        (p) =>
-          `<tr><td>${escapeHtml(p.name)}</td><td>${p.quantity ?? '—'}</td><td>${p.price}</td></tr>`,
-      )
-      .join('');
-    const html = `
-      <p>Hello ${escapeHtml(shipper.name ?? '')},</p>
-      <p>Your shipment invoice for <strong>${escapeHtml(shipment.cargoName)}</strong> (${escapeHtml(
-        shipment.originCity,
-      )} → ${escapeHtml(shipment.destinationCity)}) is ready.</p>
-      <table border="1" cellpadding="8" style="border-collapse:collapse">
-        <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <p><strong>Total: ${dto.totalPrice}</strong></p>
-      <p><a href="${dto.paymentLink.replace(/"/g, '&quot;')}">Pay now</a></p>
-    `;
-    await this.emailService.sendMail({
+    await this.emailService.sendShipmentInvoiceEmail({
       to: shipper.email,
-      subject: `Invoice — ${shipment.cargoName}`,
-      html,
-      text: `Total ${dto.totalPrice}. Pay: ${dto.paymentLink}`,
+      recipientName: shipper.name ?? 'there',
+      cargoName: shipment.cargoName,
+      originCity: shipment.originCity,
+      destinationCity: shipment.destinationCity,
+      parcelItems: dto.parcelItems,
+      totalPrice: dto.totalPrice,
+      paymentLink: dto.paymentLink,
     });
 
     return this.shipmentModel
@@ -637,12 +623,4 @@ export class ShipmentService {
     );
     return shipment.save();
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

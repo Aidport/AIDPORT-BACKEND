@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import {
+  buildPasswordChangedEmail,
+  buildPasswordResetEmail,
+  buildShipmentInvoiceEmail,
+  buildVerificationEmail,
+  type InvoiceParcelLine,
+  type VerificationVariant,
+} from './templates';
 
 @Injectable()
 export class EmailService {
@@ -56,5 +64,51 @@ export class EmailService {
       this.configService.get<string>('SMTP_USER') &&
       this.configService.get<string>('SMTP_PASS')
     );
+  }
+
+  async sendVerificationEmail(
+    to: string,
+    name: string,
+    otp: string,
+    variant: VerificationVariant = 'resend',
+  ): Promise<void> {
+    const { subject, html, text } = buildVerificationEmail(name, otp, variant);
+    await this.sendMail({ to, subject, html, text });
+  }
+
+  async sendPasswordResetEmail(
+    to: string,
+    name: string,
+    resetToken: string,
+  ): Promise<void> {
+    const { subject, html, text } = buildPasswordResetEmail(name, resetToken);
+    await this.sendMail({ to, subject, html, text });
+  }
+
+  async sendPasswordChangedEmail(to: string, name: string): Promise<void> {
+    const { subject, html, text } = buildPasswordChangedEmail(name);
+    await this.sendMail({ to, subject, html, text });
+  }
+
+  async sendShipmentInvoiceEmail(params: {
+    to: string;
+    recipientName: string;
+    cargoName: string;
+    originCity: string;
+    destinationCity: string;
+    parcelItems: InvoiceParcelLine[];
+    totalPrice: number;
+    paymentLink: string;
+  }): Promise<void> {
+    const { subject, html, text } = buildShipmentInvoiceEmail({
+      recipientName: params.recipientName,
+      cargoName: params.cargoName,
+      originCity: params.originCity,
+      destinationCity: params.destinationCity,
+      parcelItems: params.parcelItems,
+      totalPrice: params.totalPrice,
+      paymentLink: params.paymentLink,
+    });
+    await this.sendMail({ to: params.to, subject, html, text });
   }
 }

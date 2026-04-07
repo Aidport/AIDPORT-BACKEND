@@ -18,8 +18,6 @@ import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
 import { UserResponse } from '../user/types/user-response.types';
 import { EmailService } from '../../integrations/email/email.service';
-import { PasswordResetMail } from '../../integrations/email/mails/password-reset.mail';
-import { VerificationMail } from '../../integrations/email/mails/verification.mail';
 
 @Injectable()
 export class AuthService {
@@ -31,14 +29,26 @@ export class AuthService {
   ) {}
 
   async signUp(createUserDto: CreateUserDto, role: Role = Role.User): Promise<{ user: UserResponse } & { accessToken: string; expiresIn: string }> {
-    const user = await this.userService.create(createUserDto, role) as UserResponse;
+    const user = (await this.userService.create(createUserDto, role)) as UserResponse;
     const token = this.generateToken(user.id, user.role);
+    if (this.emailService.isConfigured() && role !== Role.Admin) {
+      const otp = randomBytes(4).toString('hex').toUpperCase();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
+      await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup');
+    }
     return { user, ...token };
   }
 
   async signUpAgent(createUserDto: CreateUserDto) {
     const user = (await this.userService.create(createUserDto, Role.Agent)) as UserResponse;
     const token = this.generateToken(user.id, user.role);
+    if (this.emailService.isConfigured()) {
+      const otp = randomBytes(4).toString('hex').toUpperCase();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
+      await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup');
+    }
     return { user, ...token };
   }
 
@@ -87,13 +97,7 @@ export class AuthService {
       token,
       expiresAt,
     );
-    const mail = new PasswordResetMail(
-      user.email,
-      user.name,
-      token,
-      this.emailService,
-    );
-    await mail.sendPasswordResetEmail();
+    await this.emailService.sendPasswordResetEmail(user.email, user.name, token);
     return { message: 'If the email exists, a reset link has been sent.' };
   }
 
@@ -103,6 +107,9 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
     await this.userService.resetPassword(String(user._id), dto.newPassword);
+    if (this.emailService.isConfigured()) {
+      await this.emailService.sendPasswordChangedEmail(user.email, user.name);
+    }
     return { message: 'Password has been reset successfully' };
   }
 
@@ -136,13 +143,7 @@ export class AuthService {
       otp,
       expiresAt,
     );
-    const mail = new VerificationMail(
-      user.email,
-      user.name,
-      otp,
-      this.emailService,
-    );
-    await mail.sendVerificationEmail();
+    await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'resend');
     return { message: 'If the email exists, a verification code has been sent.' };
   }
 

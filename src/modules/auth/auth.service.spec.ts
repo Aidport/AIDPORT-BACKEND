@@ -79,6 +79,10 @@ describe('AuthService', () => {
           useValue: {
             isConfigured: jest.fn().mockReturnValue(true),
             sendMail: jest.fn().mockResolvedValue(undefined),
+            sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+            sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+            sendPasswordChangedEmail: jest.fn().mockResolvedValue(undefined),
+            sendShipmentInvoiceEmail: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -102,6 +106,8 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('expiresIn');
       expect(userService.create).toHaveBeenCalledWith(dto, Role.User);
+      expect(userService.setEmailVerificationToken).toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
   });
 
@@ -111,6 +117,8 @@ describe('AuthService', () => {
       const result = await service.signUpAgent(dto);
       expect(result).toHaveProperty('user');
       expect(userService.create).toHaveBeenCalledWith(dto, Role.Agent);
+      expect(userService.setEmailVerificationToken).toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
   });
 
@@ -179,6 +187,7 @@ describe('AuthService', () => {
       const result = await service.forgotPassword({ email: 'test@example.com' });
       expect(result.message).toContain('If the email exists');
       expect(userService.setPasswordResetToken).toHaveBeenCalled();
+      expect(emailService.sendPasswordResetEmail).toHaveBeenCalled();
     });
 
     it('should throw when email not configured', async () => {
@@ -206,6 +215,10 @@ describe('AuthService', () => {
       });
       expect(result.message).toBe('Password has been reset successfully');
       expect(userService.resetPassword).toHaveBeenCalledWith('userId123', 'newpass123');
+      expect(emailService.sendPasswordChangedEmail).toHaveBeenCalledWith(
+        'test@example.com',
+        'Test User',
+      );
     });
   });
 
@@ -244,6 +257,7 @@ describe('AuthService', () => {
       const result = await service.resendVerification({ email: 'test@example.com' });
       expect(result.message).toContain('If the email exists');
       expect(userService.setEmailVerificationToken).toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
   });
 });
