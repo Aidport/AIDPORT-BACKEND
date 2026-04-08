@@ -4,8 +4,28 @@ import {
   ArgumentMetadata,
   BadRequestException,
 } from '@nestjs/common';
-import { validate } from 'class-validator';
+import { validate, ValidationError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
+
+/** Nested @ValidateNested() errors live in `children`; constraints on the parent are often empty. */
+function flattenValidationMessages(
+  errors: ValidationError[],
+  parentPath = '',
+): string[] {
+  const out: string[] = [];
+  for (const err of errors) {
+    const path = parentPath ? `${parentPath}.${err.property}` : err.property;
+    if (err.constraints && Object.keys(err.constraints).length > 0) {
+      for (const msg of Object.values(err.constraints)) {
+        out.push(`${path}: ${msg}`);
+      }
+    }
+    if (err.children?.length) {
+      out.push(...flattenValidationMessages(err.children, path));
+    }
+  }
+  return out;
+}
 
 @Injectable()
 export class ValidationPipe implements PipeTransform<any> {
@@ -13,16 +33,19 @@ export class ValidationPipe implements PipeTransform<any> {
     if (!metatype || !this.toValidate(metatype)) {
       return value;
     }
-    const object = plainToInstance(metatype, value);
+    const object = plainToInstance(metatype, value, {
+      enableImplicitConversion: true,
+    });
     const errors = await validate(object, {
       whitelist: true,
       forbidNonWhitelisted: false,
     });
     if (errors.length > 0) {
-      const messages = errors.flatMap((e) =>
-        Object.values(e.constraints || {}),
-      );
-      throw new BadRequestException({ message: 'Validation failed', errors: messages });
+      const messages = flattenValidationMessages(errors);
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: messages.length ? messages : ['Request body failed validation'],
+      });
     }
     return object;
   }
