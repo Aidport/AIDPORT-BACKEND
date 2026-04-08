@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -66,7 +66,15 @@ export class SendInvoiceDto {
     description:
       'Line items. You may send the same array as `parcelItems` or `items`. Per line: `name` (or `title`), `price` (or `amount`), optional `quantity`.',
   })
-  @Transform(({ obj }) => normalizeInvoiceLineItems(obj.parcelItems, obj.items))
+  @Transform(({ obj }) => {
+    const rows = normalizeInvoiceLineItems(obj.parcelItems, obj.items);
+    // Must be class instances: forbidUnknownValues treats plain objects as "unknown".
+    return rows.map((row) =>
+      plainToInstance(InvoiceParcelItemDto, row, {
+        enableImplicitConversion: true,
+      }),
+    );
+  })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
