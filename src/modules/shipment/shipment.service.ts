@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -564,16 +565,24 @@ export class ShipmentService {
       );
     }
 
-    await this.emailService.sendShipmentInvoiceEmail({
-      to: shipper.email,
-      recipientName: shipper.name ?? 'there',
-      cargoName: shipment.cargoName,
-      originCity: shipment.originCity,
-      destinationCity: shipment.destinationCity,
-      parcelItems: dto.parcelItems,
-      totalPrice: dto.totalPrice,
-      paymentLink: dto.paymentLink,
-    });
+    try {
+      await this.emailService.sendShipmentInvoiceEmail({
+        to: shipper.email,
+        recipientName: shipper.name ?? 'there',
+        cargoName: shipment.cargoName,
+        originCity: shipment.originCity,
+        destinationCity: shipment.destinationCity,
+        parcelItems: dto.parcelItems,
+        totalPrice: dto.totalPrice,
+        paymentLink: dto.paymentLink,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new BadGatewayException(
+        `Invoice was saved. Email to the shipper failed: ${msg}. ` +
+          'Gmail SMTP from cloud hosts (e.g. Render) often hits connection timeouts or blocks; use a transactional email API (Resend, SendGrid, Mailgun) or an SMTP relay that allows your server IP.',
+      );
+    }
 
     const agentRef =
       shipment.assignedAgentId ?? shipment.acceptedBy ?? shipment.requestedAgentId;
@@ -584,18 +593,22 @@ export class ShipmentService {
         agent.role === Role.Agent &&
         agent.email.toLowerCase() !== shipper.email.toLowerCase()
       ) {
-        await this.emailService.sendShipmentInvoiceAgentNotifyEmail({
-          to: agent.email,
-          agentName: agent.name ?? 'there',
-          shipmentId: String(shipment._id),
-          cargoName: shipment.cargoName,
-          originCity: shipment.originCity,
-          destinationCity: shipment.destinationCity,
-          shipperName: shipper.name ?? 'Customer',
-          shipperEmail: shipper.email,
-          totalPrice: dto.totalPrice,
-          paymentLink: dto.paymentLink,
-        });
+        try {
+          await this.emailService.sendShipmentInvoiceAgentNotifyEmail({
+            to: agent.email,
+            agentName: agent.name ?? 'there',
+            shipmentId: String(shipment._id),
+            cargoName: shipment.cargoName,
+            originCity: shipment.originCity,
+            destinationCity: shipment.destinationCity,
+            shipperName: shipper.name ?? 'Customer',
+            shipperEmail: shipper.email,
+            totalPrice: dto.totalPrice,
+            paymentLink: dto.paymentLink,
+          });
+        } catch {
+          /* agent copy is best-effort; shipper email already sent */
+        }
       }
     }
 

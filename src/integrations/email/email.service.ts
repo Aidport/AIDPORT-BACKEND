@@ -35,6 +35,9 @@ export class EmailService {
         port,
         secure,
         auth: { user, pass },
+        connectionTimeout: 25_000,
+        greetingTimeout: 25_000,
+        socketTimeout: 60_000,
       });
     }
     return this.transporter;
