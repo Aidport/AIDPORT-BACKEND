@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { OAuth2Client } from 'google-auth-library';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import {
+  createGmailOAuth2Client,
+  createGmailOAuthTransport,
+  type GmailOAuthConfig,
+} from './gmail-oauth.transport';
 import {
   buildPasswordChangedEmail,
   buildPasswordResetEmail,
@@ -14,12 +20,13 @@ import {
 
 @Injectable()
 export class EmailService {
-  private transporter: Transporter | null = null;
+  private passwordSmtpTransporter: Transporter | null = null;
+  private gmailOAuth2Client: OAuth2Client | null = null;
 
   constructor(private configService: ConfigService) {}
 
-  private getTransporter(): Transporter {
-    if (!this.transporter) {
+  private getPasswordSmtpTransporter(): Transporter {
+    if (!this.passwordSmtpTransporter) {
       const host = this.configService.get<string>('SMTP_HOST', 'smtp.gmail.com');
       const port = this.configService.get<number>('SMTP_PORT', 587);
       const secure = this.configService.get<boolean>('SMTP_SECURE', false);
@@ -30,7 +37,7 @@ export class EmailService {
         throw new Error('SMTP_USER and SMTP_PASS must be configured for email');
       }
 
-      this.transporter = nodemailer.createTransport({
+      this.passwordSmtpTransporter = nodemailer.createTransport({
         host,
         port,
         secure,
@@ -40,7 +47,74 @@ export class EmailService {
         socketTimeout: 60_000,
       });
     }
-    return this.transporter;
+    return this.passwordSmtpTransporter;
+  }
+
+  /** OAuth2 + Gmail API (googleapis) — matches a typical working Nodemailer `service: 'gmail'` setup. */
+  private getGmailOAuthConfig(): GmailOAuthConfig | null {
+    const clientId = this.configService.get<string>('GMAIL_CLIENT_ID')?.trim();
+    const clientSecret = this.configService.get<string>('GMAIL_CLIENT_SECRET')?.trim();
+    const redirectUri = this.configService.get<string>('GMAIL_REDIRECT_URI')?.trim();
+    const refreshToken = this.configService.get<string>('GMAIL_REFRESH_TOKEN')?.trim();
+    const user = this.configService.get<string>('GMAIL_USER')?.trim();
+    if (!clientId || !clientSecret || !redirectUri || !refreshToken || !user) {
+      return null;
+    }
+    return {
+      clientId,
+      clientSecret,
+      redirectUri,
+      refreshToken,
+      user,
+    };
+  }
+
+  private usesGmailOAuth(): boolean {
+    return this.getGmailOAuthConfig() !== null;
+  }
+
+  private getGmailOAuth2Client(): OAuth2Client {
+    if (!this.gmailOAuth2Client) {
+      const cfg = this.getGmailOAuthConfig();
+      if (!cfg) {
+        throw new Error('Gmail OAuth is not configured');
+      }
+      this.gmailOAuth2Client = createGmailOAuth2Client(cfg);
+    }
+    return this.gmailOAuth2Client;
+  }
+
+  /** From address for SMTP-style sends (password SMTP or Gmail OAuth). */
+  private getMailFromAddress(): string {
+    return (
+      this.configService.get<string>('SMTP_FROM') ||
+      this.configService.get<string>('GMAIL_FROM') ||
+      this.configService.get<string>('GMAIL_USER') ||
+      this.configService.get<string>('SMTP_USER') ||
+      'noreply@aidport.com'
+    );
+  }
+
+  private async sendViaGmailOAuth(options: {
+    to: string;
+    subject: string;
+    text?: string;
+    html?: string;
+  }): Promise<void> {
+    const cfg = this.getGmailOAuthConfig();
+    if (!cfg) {
+      throw new Error('Gmail OAuth is not configured');
+    }
+    const oauth2 = this.getGmailOAuth2Client();
+    const transport = await createGmailOAuthTransport(oauth2, cfg);
+    const from = this.getMailFromAddress();
+    await transport.sendMail({
+      from,
+      to: options.to,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+    });
   }
 
   async sendMail(options: {
@@ -49,11 +123,12 @@ export class EmailService {
     text?: string;
     html?: string;
   }): Promise<void> {
-    const transporter = this.getTransporter();
-    const from = this.configService.get<string>(
-      'SMTP_FROM',
-      this.configService.get<string>('SMTP_USER') || 'noreply@aidport.com',
-    );
+    if (this.usesGmailOAuth()) {
+      await this.sendViaGmailOAuth(options);
+      return;
+    }
+    const transporter = this.getPasswordSmtpTransporter();
+    const from = this.getMailFromAddress();
     await transporter.sendMail({
       from,
       to: options.to,
@@ -64,6 +139,9 @@ export class EmailService {
   }
 
   isConfigured(): boolean {
+    if (this.usesGmailOAuth()) {
+      return true;
+    }
     return !!(
       this.configService.get<string>('SMTP_USER') &&
       this.configService.get<string>('SMTP_PASS')
@@ -74,7 +152,7 @@ export class EmailService {
     to: string,
     name: string,
     otp: string,
-    variant: VerificationVariant = 'resend',
+    variant: VerificationVariant = 'repeat',
   ): Promise<void> {
     const { subject, html, text } = buildVerificationEmail(name, otp, variant);
     await this.sendMail({ to, subject, html, text });

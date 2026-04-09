@@ -6,7 +6,7 @@ import { LoginDto } from '../user/dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { RequestVerificationCodeDto } from './dto/request-verification-code.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Auth')
@@ -63,8 +63,8 @@ export class AuthController {
   }
 
   @Public()
-  @Post('resend-verification')
-  async resendVerification(@Body() dto: ResendVerificationDto) {
-    return this.authService.resendVerification(dto);
+  @Post('request-verification-code')
+  async requestVerificationCode(@Body() dto: RequestVerificationCodeDto) {
+    return this.authService.requestVerificationCode(dto);
   }
 }

@@ -187,8 +187,8 @@
           }]
         },
         {
-          "name": "Resend Verification",
-          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" }, "url": "{{baseUrl}}/auth/resend-verification" },
+          "name": "Request verification code",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\"\n}" }, "url": "{{baseUrl}}/auth/request-verification-code" },
           "response": [{
             "name": "200 OK",
             "status": "OK",

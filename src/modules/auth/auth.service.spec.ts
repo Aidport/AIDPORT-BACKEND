@@ -241,20 +241,20 @@ describe('AuthService', () => {
     });
   });
 
-  describe('resendVerification', () => {
+  describe('requestVerificationCode', () => {
     it('should throw when email already verified', async () => {
       jest.spyOn(userService, 'findByEmail').mockResolvedValue({
         ...mockUserDocument,
         isEmailVerified: true,
       } as any);
       await expect(
-        service.resendVerification({ email: 'test@example.com' }),
+        service.requestVerificationCode({ email: 'test@example.com' }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should send verification when user exists and not verified', async () => {
       jest.spyOn(userService, 'findByEmail').mockResolvedValue(mockUserDocument as any);
-      const result = await service.resendVerification({ email: 'test@example.com' });
+      const result = await service.requestVerificationCode({ email: 'test@example.com' });
       expect(result.message).toContain('If the email exists');
       expect(userService.setEmailVerificationToken).toHaveBeenCalled();
       expect(emailService.sendVerificationEmail).toHaveBeenCalled();

@@ -17,7 +17,7 @@
 - [x] **Forgot password** – `POST /auth/forgot-password`
 - [x] **Reset password** – `POST /auth/reset-password`
 - [x] **Verify email** – `POST /auth/verify-email`
-- [x] **Resend verification** – `POST /auth/resend-verification`
+- [x] **Request verification code** – `POST /auth/request-verification-code`
 
 ### 3. Email (Google SMTP)
 - [x] `EmailService` with Nodemailer (Google SMTP)
@@ -39,7 +39,7 @@
 | Module | Tests |
 |--------|-------|
 | `EncryptionService` | hash, verify |
-| `AuthService` | signUp, signUpAgent, login, forgotPassword, resetPassword, verifyEmail, resendVerification |
+| `AuthService` | signUp, signUpAgent, login, forgotPassword, resetPassword, verifyEmail, requestVerificationCode |
 | `UserService` | create, findById |
 | `ShipmentService` | findOne, accept |
 | `EmailService` | isConfigured |

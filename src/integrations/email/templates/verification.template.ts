@@ -1,14 +1,14 @@
 import { getMailgen } from './mailgen.factory';
 
-export type VerificationVariant = 'signup' | 'resend';
+export type VerificationVariant = 'signup' | 'repeat';
 
 /**
- * Email verification OTP — used after signup and on resend verification.
+ * Email verification OTP — used after signup and when the user requests a new code.
  */
 export function buildVerificationEmail(
   name: string,
   otp: string,
-  variant: VerificationVariant = 'resend',
+  variant: VerificationVariant = 'repeat',
 ) {
   const mailgen = getMailgen();
   const intro =

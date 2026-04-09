@@ -1,6 +1,6 @@
 import { IsEmail } from 'class-validator';
 
-export class ResendVerificationDto {
+export class RequestVerificationCodeDto {
   @IsEmail()
   email: string;
 }

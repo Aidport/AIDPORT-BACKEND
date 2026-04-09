@@ -67,7 +67,7 @@ npm run start:dev
 - `POST /auth/forgot-password` – Forgot password
 - `POST /auth/reset-password` – Reset password
 - `POST /auth/verify-email` – Verify email
-- `POST /auth/resend-verification` – Resend verification
+- `POST /auth/request-verification-code` – request a new email verification code
 
 ### Users (protected)
 - `GET /users/me` – Current user profile

@@ -13,7 +13,7 @@ import { LoginDto } from '../user/dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { RequestVerificationCodeDto } from './dto/request-verification-code.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
 import { UserResponse } from '../user/types/user-response.types';
@@ -125,7 +125,7 @@ export class AuthService {
     return { message: 'Email verified successfully' };
   }
 
-  async resendVerification(dto: ResendVerificationDto): Promise<{ message: string }> {
+  async requestVerificationCode(dto: RequestVerificationCodeDto): Promise<{ message: string }> {
     const user = await this.userService.findByEmail(dto.email);
     if (!user) {
       return { message: 'If the email exists, a verification code has been sent.' };
@@ -143,7 +143,7 @@ export class AuthService {
       otp,
       expiresAt,
     );
-    await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'resend');
+    await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'repeat');
     return { message: 'If the email exists, a verification code has been sent.' };
   }
 

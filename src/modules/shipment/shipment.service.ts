@@ -561,7 +561,7 @@ export class ShipmentService {
 
     if (!this.emailService.isConfigured()) {
       throw new BadRequestException(
-        'Invoice saved but SMTP is not configured (set SMTP_USER / SMTP_PASS); email was not sent',
+        'Invoice saved but email is not configured (set Gmail OAuth env vars or SMTP_USER / SMTP_PASS); email was not sent',
       );
     }
 
@@ -580,7 +580,7 @@ export class ShipmentService {
       const msg = err instanceof Error ? err.message : String(err);
       throw new BadGatewayException(
         `Invoice was saved. Email to the shipper failed: ${msg}. ` +
-          'Gmail SMTP from cloud hosts (e.g. Render) often hits connection timeouts or blocks; use a transactional email API (Resend, SendGrid, Mailgun) or an SMTP relay that allows your server IP.',
+          'If Gmail SMTP times out from your host, use Gmail OAuth (GMAIL_* env vars) instead of SMTP_USER/SMTP_PASS.',
       );
     }
 
