@@ -1,19 +1,22 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class AddInternationalAgentRateDto {
-  @ApiProperty({ example: 'Nigeria' })
+  @ApiPropertyOptional({
+    example: 'Nigeria',
+    description: 'Optional; international rate lines are not required to specify a lane.',
+  })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
-  originCountry: string;
+  originCountry?: string;
 
-  @ApiProperty({ example: 'United Kingdom' })
+  @ApiPropertyOptional({ example: 'United Kingdom' })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
-  destinationCountry: string;
+  destinationCountry?: string;
 
   @ApiProperty({ example: 12000, required: false })
   @IsOptional()

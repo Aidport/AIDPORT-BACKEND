@@ -8,7 +8,7 @@ import {
 /** Agent profile rate line (Mongo subdocument `_id` exposed as `id`). */
 export interface AgentRateLineResponse {
   id: string;
-  type: 'local' | 'international';
+  type: 'local' | 'international' | 'contra';
   originZone?: string;
   destinationZone?: string;
   originCountry?: string;
@@ -31,6 +31,8 @@ export interface AgentProfileResponse {
   status?: AgentStatus;
   documentUrls?: string[];
   rates?: AgentRateLineResponse[];
+  /** Standalone contra amount (optional; separate from rate lines). */
+  contraPrice?: number;
   category?: string;
 }
 

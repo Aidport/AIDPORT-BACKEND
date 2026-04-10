@@ -16,6 +16,8 @@ import { AddInternationalAgentRateDto } from './dto/add-international-agent-rate
 import { AddLocalAgentRateDto } from './dto/add-local-agent-rate.dto';
 import { UpdateInternationalAgentRateDto } from './dto/update-international-agent-rate.dto';
 import { UpdateLocalAgentRateDto } from './dto/update-local-agent-rate.dto';
+import { AddContraAgentRateDto } from './dto/add-contra-agent-rate.dto';
+import { UpdateContraAgentRateDto } from './dto/update-contra-agent-rate.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
@@ -48,6 +50,7 @@ export class UserService {
       email: createUserDto.email.toLowerCase(),
       passwordHash,
       role,
+      isEmailVerified: role === Role.Admin,
       ...(role === Role.Agent
         ? { agentProfile: { status: AgentStatus.PendingReview, rates: [] } }
         : {}),
@@ -85,6 +88,11 @@ export class UserService {
           ? dto.documentUrls
           : ((prevPlain.documentUrls as string[] | undefined) ?? []),
       rates: (prevPlain.rates as AgentProfile['rates'] | undefined) ?? [],
+      ...(dto.contraPrice !== undefined
+        ? { contraPrice: dto.contraPrice }
+        : prevPlain.contraPrice !== undefined
+          ? { contraPrice: prevPlain.contraPrice as number }
+          : {}),
     } as AgentProfile;
     user.isEmailVerified = true;
     await user.save();
@@ -211,6 +219,67 @@ export class UserService {
     return { deleted: true };
   }
 
+  async addAgentContraRate(agentId: string, dto: AddContraAgentRateDto) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const line: AgentRateLine = {
+      type: ShipmentRateKind.Contra,
+      ...(dto.basicPrice !== undefined ? { basicPrice: dto.basicPrice } : {}),
+      price: dto.price,
+    };
+    user.agentProfile!.rates = [...(user.agentProfile!.rates ?? []), line];
+    await user.save();
+    const created = user.agentProfile!.rates![user.agentProfile!.rates!.length - 1];
+    return { rate: this.mapAgentRateLine(created) };
+  }
+
+  async getAgentContraRates(agentId: string): Promise<{ items: AgentRateLineResponse[] }> {
+    const user = await this.loadAgentWithProfile(agentId);
+    const items = (user.agentProfile!.rates ?? [])
+      .filter((r) => r.type === ShipmentRateKind.Contra)
+      .map((r) => this.mapAgentRateLine(r));
+    return { items };
+  }
+
+  async updateAgentContraRate(agentId: string, rateId: string, dto: UpdateContraAgentRateDto) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const sub = this.findRateSubdoc(user, rateId);
+    if (sub.type !== ShipmentRateKind.Contra) {
+      throw new BadRequestException('This rate is not a contra rate');
+    }
+    if (dto.basicPrice !== undefined) sub.basicPrice = dto.basicPrice;
+    if (dto.price !== undefined) sub.price = dto.price;
+    await user.save();
+    const updated = this.findRateSubdoc(user, rateId);
+    return { rate: this.mapAgentRateLine(updated) };
+  }
+
+  async deleteAgentContraRate(agentId: string, rateId: string) {
+    const user = await this.loadAgentWithProfile(agentId);
+    const sub = this.findRateSubdoc(user, rateId);
+    if (sub.type !== ShipmentRateKind.Contra) {
+      throw new BadRequestException('This rate is not a contra rate');
+    }
+    user.agentProfile!.rates = (user.agentProfile!.rates ?? []).filter(
+      (r) => r._id?.toString() !== rateId,
+    );
+    await user.save();
+    return { deleted: true };
+  }
+
+  async setAgentContraPrice(agentId: string, contraPrice: number) {
+    const user = await this.loadAgentWithProfile(agentId);
+    user.agentProfile!.contraPrice = contraPrice;
+    await user.save();
+    return this.toUserResponse(user);
+  }
+
+  async clearAgentContraPrice(agentId: string) {
+    const user = await this.loadAgentWithProfile(agentId);
+    user.agentProfile!.contraPrice = undefined;
+    await user.save();
+    return this.toUserResponse(user);
+  }
+
   private async loadAgentWithProfile(agentId: string): Promise<UserDocument> {
     const user = await this.userModel.findById(agentId).exec();
     if (!user || user.role !== Role.Agent) {
@@ -236,9 +305,12 @@ export class UserService {
 
   private mapAgentRateLine(r: AgentRateLine): AgentRateLineResponse {
     const id = r._id;
+    let type: AgentRateLineResponse['type'] = 'contra';
+    if (r.type === ShipmentRateKind.Local) type = 'local';
+    else if (r.type === ShipmentRateKind.International) type = 'international';
     return {
       id: id ? String(id) : '',
-      type: r.type === ShipmentRateKind.Local ? 'local' : 'international',
+      type,
       originZone: r.originZone,
       destinationZone: r.destinationZone,
       originCountry: r.originCountry,
@@ -448,6 +520,25 @@ export class UserService {
     };
   }
 
+  /** Public: one agent by id (includes `agentProfile.documentUrls` for clients that need to fetch links). */
+  async getPublicAgentById(agentId: string) {
+    if (!Types.ObjectId.isValid(agentId)) {
+      throw new NotFoundException('Agent not found');
+    }
+    const doc = await this.userModel.findById(agentId).lean().exec();
+    if (!doc || doc.role !== Role.Agent) {
+      throw new NotFoundException('Agent not found');
+    }
+    const d = doc as typeof doc & { createdAt?: Date; isEmailVerified?: boolean };
+    return {
+      id: String(doc._id),
+      name: doc.name,
+      agentProfile: doc.agentProfile,
+      isEmailVerified: d.isEmailVerified,
+      createdAt: d.createdAt,
+    };
+  }
+
   async findAll(pagination: PaginationDto, role?: Role) {
     const { page = 1, limit = 10 } = pagination;
     const query = role ? { role } : {};
@@ -513,6 +604,7 @@ export class UserService {
         rates: Array.isArray(ap.rates)
           ? ap.rates.map((r) => this.mapAgentRateLine(r as AgentRateLine))
           : [],
+        contraPrice: ap.contraPrice,
         category: ap.category,
       };
       return { ...base, agentProfile };

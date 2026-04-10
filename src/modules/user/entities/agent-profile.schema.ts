@@ -89,9 +89,13 @@ export class AgentProfile {
   @Prop({ type: [String], default: [] })
   documentUrls?: string[];
 
-  /** Local / international pricing lines (each has Mongo subdocument id) */
+  /** Local / international / contra pricing lines (each has Mongo subdocument id) */
   @Prop({ type: [AgentRateLineSchema], default: [] })
   rates?: AgentRateLine[];
+
+  /** Standalone contra price (optional; separate from rate lines). International rates remain optional. */
+  @Prop()
+  contraPrice?: number;
 
   @Prop()
   category?: string;

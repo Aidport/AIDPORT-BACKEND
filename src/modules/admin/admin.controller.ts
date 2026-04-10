@@ -33,6 +33,7 @@ import {
 } from './dto/update-agent-status.dto';
 import { SendInvoiceDto } from '../shipment/dto/send-invoice.dto';
 import { AssignShipmentDto } from '../shipment/dto/assign-shipment.dto';
+import { MarkShipmentPaidDto } from './dto/mark-shipment-paid.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -124,10 +125,14 @@ export class AdminController {
   @Patch('shipments/:id/mark-paid')
   @ApiOperation({
     summary: 'Record payment received',
-    description: 'Sets paymentStatus and status to paid (e.g. after Paystack confirmation).',
+    description:
+      'Sets paymentStatus and status to paid. Optionally set `amountPaid` (defaults to invoice total or shipment amount). Sets `paidAt`.',
   })
-  markShipmentPaid(@Param('id') id: string) {
-    return this.adminService.markShipmentPaid(id);
+  markShipmentPaid(
+    @Param('id') id: string,
+    @Body() dto: MarkShipmentPaidDto,
+  ) {
+    return this.adminService.markShipmentPaid(id, dto);
   }
 
   @Patch('shipments/:id/assign')

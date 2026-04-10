@@ -15,7 +15,11 @@ import {
 import { ShipmentRateKind } from '../../shipment/entities/shipment.entity';
 
 export class ShipmentRateLineDto {
-  @ApiProperty({ enum: ShipmentRateKind, example: ShipmentRateKind.Local })
+  @ApiProperty({
+    enum: ShipmentRateKind,
+    example: ShipmentRateKind.Local,
+    description: 'local (zones), international (countries, optional), or contra (price only).',
+  })
   @IsEnum(ShipmentRateKind)
   type: ShipmentRateKind;
 
@@ -33,12 +37,14 @@ export class ShipmentRateLineDto {
 
   @ApiProperty({ example: 'Nigeria', required: false })
   @ValidateIf((o: ShipmentRateLineDto) => o.type === ShipmentRateKind.International)
+  @IsOptional()
   @IsString()
   @MaxLength(200)
   originCountry?: string;
 
   @ApiProperty({ example: 'Ghana', required: false })
   @ValidateIf((o: ShipmentRateLineDto) => o.type === ShipmentRateKind.International)
+  @IsOptional()
   @IsString()
   @MaxLength(200)
   destinationCountry?: string;
@@ -73,6 +79,7 @@ export class AgentAddRatesDto {
         destinationCountry: 'UK',
         price: 12000,
       },
+      { type: 'contra', price: 8000 },
     ],
   })
   @IsArray()

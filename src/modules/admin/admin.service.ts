@@ -30,6 +30,7 @@ import {
 import { UpdateShipmentDto } from '../shipment/dto/update-shipment.dto';
 import { SendInvoiceDto } from '../shipment/dto/send-invoice.dto';
 import { AssignShipmentDto } from '../shipment/dto/assign-shipment.dto';
+import { MarkShipmentPaidDto } from './dto/mark-shipment-paid.dto';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -511,7 +512,7 @@ export class AdminService {
     return this.shipmentService.assignAgentAfterPayment(id, dto.assignedAgentId);
   }
 
-  markShipmentPaid(id: string) {
-    return this.shipmentService.markShipmentPaid(id);
+  markShipmentPaid(id: string, dto?: MarkShipmentPaidDto) {
+    return this.shipmentService.markShipmentPaid(id, dto);
   }
 }

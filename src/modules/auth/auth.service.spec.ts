@@ -31,7 +31,7 @@ describe('AuthService', () => {
     email: 'test@example.com',
     role: Role.User,
     passwordHash: 'hashed',
-    isEmailVerified: false,
+    isEmailVerified: true,
     save: jest.fn(),
   };
 
@@ -253,7 +253,10 @@ describe('AuthService', () => {
     });
 
     it('should send verification when user exists and not verified', async () => {
-      jest.spyOn(userService, 'findByEmail').mockResolvedValue(mockUserDocument as any);
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue({
+        ...mockUserDocument,
+        isEmailVerified: false,
+      } as any);
       const result = await service.requestVerificationCode({ email: 'test@example.com' });
       expect(result.message).toContain('If the email exists');
       expect(userService.setEmailVerificationToken).toHaveBeenCalled();

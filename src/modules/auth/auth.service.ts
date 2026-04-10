@@ -68,6 +68,11 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    if (!user.isEmailVerified && user.role !== Role.Admin) {
+      throw new UnauthorizedException(
+        'Please verify your email with the OTP sent to your inbox.',
+      );
+    }
     const userResponse = this.userService.toUserResponse(user);
     const token = this.generateToken(userResponse.id, userResponse.role);
     return { user: userResponse, ...token };

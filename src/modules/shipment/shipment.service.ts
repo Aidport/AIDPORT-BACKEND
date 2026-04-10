@@ -434,14 +434,28 @@ export class ShipmentService {
     if (!this.isAssignedAgent(shipment, agentId)) {
       throw new ForbiddenException('Only the assigned agent can add or update rates');
     }
-    shipment.rates = dto.rates.map((r) => ({
-      type: r.type,
-      price: r.price,
-      ...(r.basicPrice !== undefined ? { basicPrice: r.basicPrice } : {}),
-      ...(r.type === ShipmentRateKind.Local
-        ? { originZone: r.originZone, destinationZone: r.destinationZone }
-        : { originCountry: r.originCountry, destinationCountry: r.destinationCountry }),
-    }));
+    shipment.rates = dto.rates.map((r) => {
+      const base = {
+        type: r.type,
+        price: r.price,
+        ...(r.basicPrice !== undefined ? { basicPrice: r.basicPrice } : {}),
+      };
+      if (r.type === ShipmentRateKind.Local) {
+        return {
+          ...base,
+          originZone: r.originZone,
+          destinationZone: r.destinationZone,
+        };
+      }
+      if (r.type === ShipmentRateKind.International) {
+        return {
+          ...base,
+          originCountry: r.originCountry,
+          destinationCountry: r.destinationCountry,
+        };
+      }
+      return base;
+    });
     shipment.amount = dto.rates.reduce(
       (sum, r) => sum + r.price + (r.basicPrice ?? 0),
       0,
@@ -620,13 +634,23 @@ export class ShipmentService {
   }
 
   /** Admin: mark shipment paid (e.g. after Paystack confirmation). */
-  async markShipmentPaid(shipmentId: string) {
+  async markShipmentPaid(
+    shipmentId: string,
+    opts?: { amountPaid?: number },
+  ) {
     const shipment = await this.shipmentModel.findById(shipmentId).exec();
     if (!shipment) {
       throw new NotFoundException('Shipment not found');
     }
     shipment.paymentStatus = PaymentStatus.Paid;
     shipment.status = ShipmentStatus.Paid;
+    const paid =
+      opts?.amountPaid ??
+      shipment.invoiceTotalPrice ??
+      shipment.amount ??
+      0;
+    shipment.amountPaid = paid;
+    shipment.paidAt = new Date();
     this.addEvent(shipment, ShipmentStatus.Paid, 'Payment received');
     return shipment.save();
   }

@@ -25,6 +25,9 @@ import { AddInternationalAgentRateDto } from '../user/dto/add-international-agen
 import { AddLocalAgentRateDto } from '../user/dto/add-local-agent-rate.dto';
 import { UpdateInternationalAgentRateDto } from '../user/dto/update-international-agent-rate.dto';
 import { UpdateLocalAgentRateDto } from '../user/dto/update-local-agent-rate.dto';
+import { AddContraAgentRateDto } from '../user/dto/add-contra-agent-rate.dto';
+import { UpdateContraAgentRateDto } from '../user/dto/update-contra-agent-rate.dto';
+import { SetAgentContraPriceDto } from '../user/dto/set-agent-contra-price.dto';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -142,6 +145,59 @@ export class AgentController {
     return this.agentService.deleteInternationalRate(agentId, rateId);
   }
 
+  @Post('rates/contra')
+  @ApiOperation({ summary: 'Add a contra rate line (price-only; appends).' })
+  addContraRate(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: AddContraAgentRateDto,
+  ) {
+    return this.agentService.addContraRate(agentId, dto);
+  }
+
+  @Get('rates/contra')
+  @ApiOperation({ summary: 'List contra rate lines on the agent profile' })
+  getContraRates(@CurrentUser('id') agentId: string) {
+    return this.agentService.getContraRates(agentId);
+  }
+
+  @Patch('rates/contra/:rateId')
+  @ApiOperation({ summary: 'Update one contra rate by id' })
+  updateContraRate(
+    @CurrentUser('id') agentId: string,
+    @Param('rateId') rateId: string,
+    @Body() dto: UpdateContraAgentRateDto,
+  ) {
+    return this.agentService.updateContraRate(agentId, rateId, dto);
+  }
+
+  @Delete('rates/contra/:rateId')
+  @ApiOperation({ summary: 'Delete one contra rate by id' })
+  deleteContraRate(
+    @CurrentUser('id') agentId: string,
+    @Param('rateId') rateId: string,
+  ) {
+    return this.agentService.deleteContraRate(agentId, rateId);
+  }
+
+  @Patch('profile/contra-price')
+  @ApiOperation({
+    summary: 'Set standalone contra price on profile',
+    description:
+      'Separate from local/international lines. Use DELETE /agent/profile/contra-price to clear.',
+  })
+  setContraPrice(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: SetAgentContraPriceDto,
+  ) {
+    return this.agentService.setContraPrice(agentId, dto);
+  }
+
+  @Delete('profile/contra-price')
+  @ApiOperation({ summary: 'Clear standalone contra price on profile' })
+  clearContraPrice(@CurrentUser('id') agentId: string) {
+    return this.agentService.clearContraPrice(agentId);
+  }
+
   /** Admin-approved quotes awaiting an agent (linked to shipments) */
   @Get('quotes')
   listOpenQuotes(
@@ -164,7 +220,7 @@ export class AgentController {
   @ApiOperation({
     summary: 'Set shipment commercial rates',
     description:
-      'Provide `rates` as an array of local (zones) or international (countries) lines. `amount` on the shipment is set to the sum of `price`.',
+      'Provide `rates`: local (zones), international (countries optional), and/or contra (price-only). `amount` sums `price` + `basicPrice` per line.',
   })
   addRates(
     @Param('shipmentId') shipmentId: string,

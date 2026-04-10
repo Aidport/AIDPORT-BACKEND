@@ -133,6 +133,8 @@ const InvoiceLineItemSchema = SchemaFactory.createForClass(InvoiceLineItem);
 export enum ShipmentRateKind {
   Local = 'local',
   International = 'international',
+  /** Contra / contract-style pricing (no zone or country pair). */
+  Contra = 'contra',
 }
 
 /** One commercial rate line (local zones vs international countries). */
@@ -261,9 +263,16 @@ export class Shipment {
   @Prop({ type: [ShipmentRateLineSchema], default: [] })
   rates?: ShipmentRateLine[];
 
-  /** Shipping cost / rate amount (typically sum of `rates[].price`) */
+  /** Shipping cost / rate amount (typically sum of `rates[].price` + basicPrice) */
   @Prop()
   amount?: number;
+
+  /** Amount actually paid (e.g. Paystack); set when payment is recorded. */
+  @Prop()
+  amountPaid?: number;
+
+  @Prop()
+  paidAt?: Date;
 
   @Prop({ default: 'NGN' })
   currency?: string;

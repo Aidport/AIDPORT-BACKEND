@@ -10,6 +10,9 @@ import { AddInternationalAgentRateDto } from '../user/dto/add-international-agen
 import { AddLocalAgentRateDto } from '../user/dto/add-local-agent-rate.dto';
 import { UpdateInternationalAgentRateDto } from '../user/dto/update-international-agent-rate.dto';
 import { UpdateLocalAgentRateDto } from '../user/dto/update-local-agent-rate.dto';
+import { AddContraAgentRateDto } from '../user/dto/add-contra-agent-rate.dto';
+import { UpdateContraAgentRateDto } from '../user/dto/update-contra-agent-rate.dto';
+import { SetAgentContraPriceDto } from '../user/dto/set-agent-contra-price.dto';
 
 @Injectable()
 export class AgentService {
@@ -61,6 +64,30 @@ export class AgentService {
 
   deleteInternationalRate(agentId: string, rateId: string) {
     return this.userService.deleteAgentInternationalRate(agentId, rateId);
+  }
+
+  addContraRate(agentId: string, dto: AddContraAgentRateDto) {
+    return this.userService.addAgentContraRate(agentId, dto);
+  }
+
+  getContraRates(agentId: string) {
+    return this.userService.getAgentContraRates(agentId);
+  }
+
+  updateContraRate(agentId: string, rateId: string, dto: UpdateContraAgentRateDto) {
+    return this.userService.updateAgentContraRate(agentId, rateId, dto);
+  }
+
+  deleteContraRate(agentId: string, rateId: string) {
+    return this.userService.deleteAgentContraRate(agentId, rateId);
+  }
+
+  setContraPrice(agentId: string, dto: SetAgentContraPriceDto) {
+    return this.userService.setAgentContraPrice(agentId, dto.contraPrice);
+  }
+
+  clearContraPrice(agentId: string) {
+    return this.userService.clearAgentContraPrice(agentId);
   }
 
   async listOpenQuotes(agentId: string, pagination: PaginationDto) {

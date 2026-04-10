@@ -1,4 +1,5 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
@@ -34,14 +35,40 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(loginDto);
+    const cookieName = process.env.JWT_COOKIE_NAME || 'access_token';
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    res.cookie(cookieName, result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: maxAgeMs,
+      path: '/',
+    });
+    return result;
   }
 
   @Public()
   @Post('login/agent')
-  async loginAgent(@Body() loginDto: LoginDto) {
-    return this.authService.loginAgent(loginDto);
+  async loginAgent(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.loginAgent(loginDto);
+    const cookieName = process.env.JWT_COOKIE_NAME || 'access_token';
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    res.cookie(cookieName, result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: maxAgeMs,
+      path: '/',
+    });
+    return result;
   }
 
   @Public()

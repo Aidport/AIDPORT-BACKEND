@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { UserService } from './user.service';
@@ -14,5 +14,11 @@ export class AgentsController {
   @Get()
   list(@Query() query: ListAgentsQueryDto) {
     return this.userService.listPublicAgents(query);
+  }
+
+  @Public()
+  @Get(':id')
+  getOne(@Param('id') id: string) {
+    return this.userService.getPublicAgentById(id);
   }
 }

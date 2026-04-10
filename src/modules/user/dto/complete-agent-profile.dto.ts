@@ -3,14 +3,17 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
+  Min,
   MinLength,
   ArrayMinSize,
   ArrayMaxSize,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import {
   AgentPricingPlan,
   TransportMode,
@@ -66,4 +69,14 @@ export class CompleteAgentProfileDto {
   @IsUrl({ require_protocol: true }, { each: true })
   @MaxLength(2048, { each: true })
   documentUrls?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Standalone contra price (optional; separate from local/intl rates).',
+    example: 15000,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  contraPrice?: number;
 }
