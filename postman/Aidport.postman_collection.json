@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: agent signup is two steps (POST /auth/signup/agent with name/email/password, then PATCH /agent/profile with company details). Public GET /agents. Shipments: optional pickupMethod terminal|dispatch; rates support basicPrice + price. Admin: POST /admin/shipments/:id/send-invoice (email + Paystack link), PATCH mark-paid, PATCH assign (after payment). Agent: GET /agent/shipments (assigned only). Upload CRUD: GET /upload/resource, DELETE /upload, POST /upload/remove-batch, PATCH /upload/gallery (+ POST single/multiple). User, Agent portal, Admin, quotes",
+    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`). Public GET /agents and GET /agents/:id (includes `documentUrls`). Rates: local, international (countries optional), contra (price-only) + standalone `PATCH /agent/profile/contra-price`. Shipments: Admin PATCH mark-paid body `{ \"amountPaid\"?: number }` sets `amountPaid`/`paidAt`. Admin: send-invoice, assign. Agent: shipment rates may include `type: contra`. Upload CRUD. See collection variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,6 +13,7 @@
     { "key": "agentId", "value": "" },
     { "key": "agentRateIdLocal", "value": "" },
     { "key": "agentRateIdInternational", "value": "" },
+    { "key": "agentRateIdContra", "value": "", "description": "Mongo subdocument id from Add contra rate response (rate.id)" },
     { "key": "uploadUrl", "value": "", "description": "Cloudinary delivery URL from upload response — for delete / resource GET tests" }
   ],
   "auth": {
@@ -66,8 +67,17 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea\", \"land\"],\n        \"isVerified\": false,\n        \"status\": \"approved\"\n      },\n      \"isEmailVerified\": true,\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea\", \"land\"],\n        \"isVerified\": false,\n        \"status\": \"approved\",\n        \"documentUrls\": [\"https://res.cloudinary.com/xxx/doc.pdf\"],\n        \"contraPrice\": 25000\n      },\n      \"isEmailVerified\": true,\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
           }]
+        },
+        {
+          "name": "Get Agent by Id (public)",
+          "description": "No auth. Returns one agent including `agentProfile.documentUrls` and `rates` (use `{{agentId}}` from signup or list).",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/agents/{{agentId}}"
+          }
         }
       ]
     },
@@ -116,6 +126,7 @@
         },
         {
           "name": "Login",
+          "description": "Sets httpOnly cookie `access_token` (name override: JWT_COOKIE_NAME). Requires verified email for non-admin. Use `credentials: include` from browsers. Saves token to collection for Bearer.",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/login" },
           "response": [{
@@ -129,6 +140,7 @@
         },
         {
           "name": "Login Agent",
+          "description": "Same cookie behavior as Login. Agent must have completed profile (isEmailVerified=true after step 2).",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json().accessToken) { pm.collectionVariables.set('accessToken', pm.response.json().accessToken); }"] } }],
           "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"agent@example.com\",\n  \"password\": \"password123\"\n}" }, "url": "{{baseUrl}}/auth/login/agent" }
         },
@@ -138,7 +150,7 @@
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"]\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"],\n  \"contraPrice\": 15000\n}" },
             "url": "{{baseUrl}}/agent/profile"
           },
           "response": [{
@@ -147,7 +159,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\",\n    \"contraPrice\": 15000\n  }\n}"
           }]
         },
         {
@@ -391,7 +403,7 @@
         },
         {
           "name": "Send Invoice (email shipper)",
-          "description": "Admin JWT. Persists parcel line items, totalPrice, paymentLink on the shipment and emails the shipper. Configure SMTP_USER, SMTP_PASS (and optional SMTP_HOST) in .env.",
+          "description": "Admin JWT. Persists parcel line items, totalPrice, paymentLink on the shipment and emails the shipper. Use Gmail OAuth (GMAIL_*) or SMTP in .env. Path must be plural: /admin/shipments/:id/send-invoice.",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -404,8 +416,13 @@
         },
         {
           "name": "Mark Shipment Paid",
-          "description": "Admin JWT. Sets paymentStatus and status to paid (e.g. after Paystack webhook or manual confirmation).",
-          "request": { "method": "PATCH", "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}/mark-paid" }
+          "description": "Admin JWT. Sets paymentStatus, status to paid, `paidAt`, and `amountPaid` (body optional — defaults to invoiceTotalPrice or shipment amount).",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amountPaid\": 45000\n}" },
+            "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}/mark-paid"
+          }
         },
         {
           "name": "Assign Agent (after payment)",
@@ -462,11 +479,11 @@
       "item": [
         {
           "name": "Complete Agent Profile (step 2)",
-          "description": "Same as Auth → Complete Agent Profile (step 2). Sets user isEmailVerified to true.",
+          "description": "Same as Auth → Complete Agent Profile (step 2). Optional `contraPrice` (standalone). Sets user isEmailVerified to true.",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"]\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"],\n  \"contraPrice\": 15000\n}" },
             "url": "{{baseUrl}}/agent/profile"
           },
           "response": [{
@@ -475,12 +492,23 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\"\n  }\n}"
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\",\n    \"contraPrice\": 15000\n  }\n}"
           }]
         },
         {
           "name": "Me",
+          "description": "Returns full agent user including `agentProfile.documentUrls`, `rates`, `contraPrice`.",
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
+        },
+        {
+          "name": "Update documents (URLs)",
+          "description": "After POST /upload, paste returned `url` values here. Replaces full list.",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"documentUrls\": [\n    \"https://res.cloudinary.com/your-cloud/raw/upload/v1/sample.pdf\"\n  ]\n}" },
+            "url": "{{baseUrl}}/agent/documents"
+          }
         },
         {
           "name": "My assigned shipments",
@@ -501,12 +529,26 @@
               "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"originCountry\": \"Nigeria\",\n  \"destinationCountry\": \"United Kingdom\",\n  \"basicPrice\": 400000,\n  \"price\": 50000\n}" }, "url": "{{baseUrl}}/agent/rates/international" }
             },
             {
+              "name": "Add international rate (countries optional)",
+              "description": "International lanes are optional — omit originCountry/destinationCountry if you only need a generic intl price line.",
+              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"price\": 75000,\n  \"basicPrice\": 10000\n}" }, "url": "{{baseUrl}}/agent/rates/international" }
+            },
+            {
+              "name": "Add contra rate",
+              "event": [{ "listen": "test", "script": { "exec": ["const j = pm.response.json();", "if (pm.response.code === 200 || pm.response.code === 201) {", "  if (j.rate && j.rate.id) pm.collectionVariables.set('agentRateIdContra', j.rate.id);", "}"] } }],
+              "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"basicPrice\": 5000,\n  \"price\": 12000\n}" }, "url": "{{baseUrl}}/agent/rates/contra" }
+            },
+            {
               "name": "Get local rates",
               "request": { "method": "GET", "url": "{{baseUrl}}/agent/rates/local" }
             },
             {
               "name": "Get international rates",
               "request": { "method": "GET", "url": "{{baseUrl}}/agent/rates/international" }
+            },
+            {
+              "name": "Get contra rates",
+              "request": { "method": "GET", "url": "{{baseUrl}}/agent/rates/contra" }
             },
             {
               "name": "Update local rate",
@@ -523,8 +565,25 @@
             {
               "name": "Delete international rate",
               "request": { "method": "DELETE", "url": "{{baseUrl}}/agent/rates/international/{{agentRateIdInternational}}" }
+            },
+            {
+              "name": "Update contra rate",
+              "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"basicPrice\": 6000,\n  \"price\": 13000\n}" }, "url": "{{baseUrl}}/agent/rates/contra/{{agentRateIdContra}}" }
+            },
+            {
+              "name": "Delete contra rate",
+              "request": { "method": "DELETE", "url": "{{baseUrl}}/agent/rates/contra/{{agentRateIdContra}}" }
             }
           ]
+        },
+        {
+          "name": "Set standalone contra price (profile)",
+          "description": "Separate from rate lines. PATCH body `{ \"contraPrice\": number }`.",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"contraPrice\": 25000\n}" }, "url": "{{baseUrl}}/agent/profile/contra-price" }
+        },
+        {
+          "name": "Clear standalone contra price (profile)",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/agent/profile/contra-price" }
         },
         {
           "name": "List Open Quotes",
@@ -536,8 +595,8 @@
         },
         {
           "name": "Set Shipment Rates",
-          "description": "Assigned agent only. Each rate line may include basicPrice (base/list) and price; amount on shipment = sum(price + basicPrice per line).",
-          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"Lagos Island\",\n      \"destinationZone\": \"Abuja Central\",\n      \"basicPrice\": 12000,\n      \"price\": 5000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"Nigeria\",\n      \"destinationCountry\": \"Ghana\",\n      \"basicPrice\": 80000,\n      \"price\": 20000\n    }\n  ],\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
+          "description": "Assigned agent only. Types: local | international | contra. amount = sum(price + basicPrice per line). International countries optional.",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rates\": [\n    {\n      \"type\": \"local\",\n      \"originZone\": \"Lagos Island\",\n      \"destinationZone\": \"Abuja Central\",\n      \"basicPrice\": 12000,\n      \"price\": 5000\n    },\n    {\n      \"type\": \"international\",\n      \"originCountry\": \"Nigeria\",\n      \"destinationCountry\": \"Ghana\",\n      \"basicPrice\": 80000,\n      \"price\": 20000\n    },\n    {\n      \"type\": \"contra\",\n      \"basicPrice\": 2000,\n      \"price\": 8000\n    }\n  ],\n  \"currency\": \"NGN\",\n  \"carrierName\": \"Aidport Partner\"\n}" }, "url": "{{baseUrl}}/agent/shipments/{{shipmentId}}/rates" }
         }
       ]
     },
