@@ -1,11 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { flattenValidationMessages } from '../../common/pipes/validation.pipe';
 import { UserService } from '../user/user.service';
 import { QuotesService } from '../quotes/quotes.service';
 import { ShipmentService } from '../shipment/shipment.service';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
-import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
+import {
+  normalizeAgentDocumentUrlsInput,
+  UpdateAgentDocumentsDto,
+} from '../user/dto/update-agent-documents.dto';
 import { AddInternationalAgentRateDto } from '../user/dto/add-international-agent-rate.dto';
 import { AddLocalAgentRateDto } from '../user/dto/add-local-agent-rate.dto';
 import { UpdateInternationalAgentRateDto } from '../user/dto/update-international-agent-rate.dto';
@@ -30,7 +36,20 @@ export class AgentService {
     return this.userService.completeAgentProfile(agentId, dto);
   }
 
-  updateDocuments(agentId: string, dto: UpdateAgentDocumentsDto) {
+  async updateDocuments(agentId: string, body: unknown) {
+    const documentUrls = normalizeAgentDocumentUrlsInput(body);
+    const dto = plainToInstance(UpdateAgentDocumentsDto, { documentUrls });
+    const errors = await validate(dto, {
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      forbidUnknownValues: false,
+    });
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Validation failed',
+        errors: flattenValidationMessages(errors),
+      });
+    }
     return this.userService.updateAgentDocumentUrls(agentId, dto);
   }
 

@@ -8,7 +8,7 @@ import { validate, ValidationError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
 /** Nested @ValidateNested() errors live in `children`; constraints on the parent are often empty. */
-function flattenValidationMessages(
+export function flattenValidationMessages(
   errors: ValidationError[],
   parentPath = '',
 ): string[] {

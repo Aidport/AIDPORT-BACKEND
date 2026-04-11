@@ -109,6 +109,7 @@ export class UserService {
       throw new ForbiddenException('Agent profile not initialized');
     }
     user.agentProfile.documentUrls = dto.documentUrls;
+    user.markModified('agentProfile');
     await user.save();
     return this.toUserResponse(user);
   }
@@ -600,7 +601,7 @@ export class UserService {
         trucksCount: ap.trucksCount,
         loadCapacity: ap.loadCapacity,
         status: ap.status,
-        documentUrls: Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : ap.documentUrls,
+        documentUrls: Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : [],
         rates: Array.isArray(ap.rates)
           ? ap.rates.map((r) => this.mapAgentRateLine(r as AgentRateLine))
           : [],

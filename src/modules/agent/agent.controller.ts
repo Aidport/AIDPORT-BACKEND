@@ -20,7 +20,6 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AcceptAgentQuoteDto } from './dto/accept-agent-quote.dto';
 import { AgentAddRatesDto } from './dto/agent-add-rates.dto';
 import { CompleteAgentProfileDto } from '../user/dto/complete-agent-profile.dto';
-import { UpdateAgentDocumentsDto } from '../user/dto/update-agent-documents.dto';
 import { AddInternationalAgentRateDto } from '../user/dto/add-international-agent-rate.dto';
 import { AddLocalAgentRateDto } from '../user/dto/add-local-agent-rate.dto';
 import { UpdateInternationalAgentRateDto } from '../user/dto/update-international-agent-rate.dto';
@@ -72,9 +71,10 @@ export class AgentController {
   })
   updateDocuments(
     @CurrentUser('id') agentId: string,
-    @Body() dto: UpdateAgentDocumentsDto,
+    /** Accepts `documentUrls`, `document_urls`, `urls`, root JSON array, or Cloudinary `{ url|secure_url }` items — normalized in AgentService. */
+    @Body() body: unknown,
   ) {
-    return this.agentService.updateDocuments(agentId, dto);
+    return this.agentService.updateDocuments(agentId, body);
   }
 
   @Post('rates/local')
