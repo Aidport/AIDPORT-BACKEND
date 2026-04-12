@@ -15,22 +15,49 @@ import { Public } from '../../common/decorators/public.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private setAuthCookie(res: Response, accessToken: string) {
+    const cookieName = process.env.JWT_COOKIE_NAME || 'access_token';
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    res.cookie(cookieName, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: maxAgeMs,
+      path: '/',
+    });
+  }
+
   @Public()
   @Post('signup')
-  async signUp(@Body() createUserDto: CreateUserDto) {
-    return this.authService.signUp(createUserDto);
+  async signUp(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.signUp(createUserDto);
+    this.setAuthCookie(res, result.accessToken);
+    return result;
   }
 
   @Public()
   @Post('signup/agent')
-  async signUpAgent(@Body() createUserDto: CreateUserDto) {
-    return this.authService.signUpAgent(createUserDto);
+  async signUpAgent(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.signUpAgent(createUserDto);
+    this.setAuthCookie(res, result.accessToken);
+    return result;
   }
 
   @Public()
   @Post('signup/admin')
-  async signUpAdmin(@Body() createUserDto: CreateUserDto) {
-    return this.authService.signUpAdmin(createUserDto);
+  async signUpAdmin(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.signUpAdmin(createUserDto);
+    this.setAuthCookie(res, result.accessToken);
+    return result;
   }
 
   @Public()
@@ -40,15 +67,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(loginDto);
-    const cookieName = process.env.JWT_COOKIE_NAME || 'access_token';
-    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
-    res.cookie(cookieName, result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: maxAgeMs,
-      path: '/',
-    });
+    this.setAuthCookie(res, result.accessToken);
     return result;
   }
 
@@ -59,15 +78,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.loginAgent(loginDto);
-    const cookieName = process.env.JWT_COOKIE_NAME || 'access_token';
-    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
-    res.cookie(cookieName, result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: maxAgeMs,
-      path: '/',
-    });
+    this.setAuthCookie(res, result.accessToken);
     return result;
   }
 
