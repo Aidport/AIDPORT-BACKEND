@@ -1,4 +1,5 @@
 import type { OAuth2Client } from 'google-auth-library';
+import * as dns from 'node:dns/promises';
 import { google } from 'googleapis';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -32,8 +33,19 @@ export async function createGmailOAuthTransport(
   if (!access.token) {
     throw new Error('Gmail OAuth2: failed to obtain access token');
   }
+  /** Same as Nodemailer well-known "Gmail" — avoid `service: 'gmail'` random IPv6 pick on hosts without IPv6 SMTP. */
+  const logicalHost = 'smtp.gmail.com';
+  let host = logicalHost;
+  try {
+    const { address } = await dns.lookup(logicalHost, { family: 4 });
+    host = address;
+  } catch {
+    /* use hostname */
+  }
   return nodemailer.createTransport({
-    service: 'gmail',
+    host,
+    port: 465,
+    secure: true,
     auth: {
       type: 'OAuth2',
       user: cfg.user,
@@ -44,6 +56,7 @@ export async function createGmailOAuthTransport(
     },
     tls: {
       rejectUnauthorized: false,
+      servername: logicalHost,
     },
     connectionTimeout: 25_000,
     greetingTimeout: 25_000,

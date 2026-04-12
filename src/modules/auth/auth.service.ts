@@ -105,7 +105,13 @@ export class AuthService {
       token,
       expiresAt,
     );
-    await this.emailService.sendPasswordResetEmail(user.email, user.name, token);
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, user.name, token);
+    } catch (err) {
+      this.logger.warn(
+        `Password reset email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
     return { message: 'If the email exists, a reset link has been sent.' };
   }
 
@@ -116,7 +122,13 @@ export class AuthService {
     }
     await this.userService.resetPassword(String(user._id), dto.newPassword);
     if (this.emailService.isConfigured()) {
-      await this.emailService.sendPasswordChangedEmail(user.email, user.name);
+      try {
+        await this.emailService.sendPasswordChangedEmail(user.email, user.name);
+      } catch (err) {
+        this.logger.warn(
+          `Password changed email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
     return { message: 'Password has been reset successfully' };
   }
@@ -151,7 +163,13 @@ export class AuthService {
       otp,
       expiresAt,
     );
-    await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'repeat');
+    try {
+      await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'repeat');
+    } catch (err) {
+      this.logger.warn(
+        `Verification code email failed for ${dto.email}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
     return { message: 'If the email exists, a verification code has been sent.' };
   }
 

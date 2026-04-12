@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as dns from 'node:dns/promises';
+import * as net from 'node:net';
 import type { OAuth2Client } from 'google-auth-library';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -20,33 +22,65 @@ import {
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
   private passwordSmtpTransporter: Transporter | null = null;
+  private passwordSmtpInitPromise: Promise<Transporter> | null = null;
   private gmailOAuth2Client: OAuth2Client | null = null;
 
   constructor(private configService: ConfigService) {}
 
-  private getPasswordSmtpTransporter(): Transporter {
-    if (!this.passwordSmtpTransporter) {
-      const host = this.configService.get<string>('SMTP_HOST', 'smtp.gmail.com');
-      const port = this.configService.get<number>('SMTP_PORT', 587);
-      const secure = this.configService.get<boolean>('SMTP_SECURE', false);
-      const user = this.configService.get<string>('SMTP_USER');
-      const pass = this.configService.get<string>('SMTP_PASS');
-
-      if (!user || !pass) {
-        throw new Error('SMTP_USER and SMTP_PASS must be configured for email');
-      }
-
-      this.passwordSmtpTransporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-        connectionTimeout: 25_000,
-        greetingTimeout: 25_000,
-        socketTimeout: 60_000,
-      });
+  /** Resolves SMTP host to IPv4 when possible so PaaS without working IPv6 (e.g. Render) can reach Gmail. */
+  private async getPasswordSmtpTransporter(): Promise<Transporter> {
+    if (this.passwordSmtpTransporter) {
+      return this.passwordSmtpTransporter;
     }
+    if (!this.passwordSmtpInitPromise) {
+      this.passwordSmtpInitPromise = this.buildPasswordSmtpTransporter();
+    }
+    return this.passwordSmtpInitPromise;
+  }
+
+  private async buildPasswordSmtpTransporter(): Promise<Transporter> {
+    const host = this.configService.get<string>('SMTP_HOST', 'smtp.gmail.com');
+    const port = this.configService.get<number>('SMTP_PORT', 587);
+    const secure = this.configService.get<boolean>('SMTP_SECURE', false);
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASS');
+
+    if (!user || !pass) {
+      throw new Error('SMTP_USER and SMTP_PASS must be configured for email');
+    }
+
+    const preferIpv4 =
+      this.configService.get<string>('SMTP_PREFER_IPV4', 'true') !== 'false';
+    let connectHost = host;
+    if (preferIpv4 && !net.isIP(host)) {
+      try {
+        const { address } = await dns.lookup(host, { family: 4 });
+        connectHost = address;
+      } catch (e) {
+        this.logger.warn(
+          `SMTP IPv4 lookup failed for ${host}, using hostname: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    this.passwordSmtpTransporter = nodemailer.createTransport({
+      host: connectHost,
+      port,
+      secure,
+      auth: { user, pass },
+      connectionTimeout: 25_000,
+      greetingTimeout: 25_000,
+      socketTimeout: 60_000,
+      ...(connectHost !== host
+        ? {
+            tls: {
+              servername: host,
+            },
+          }
+        : {}),
+    });
     return this.passwordSmtpTransporter;
   }
 
@@ -127,7 +161,7 @@ export class EmailService {
       await this.sendViaGmailOAuth(options);
       return;
     }
-    const transporter = this.getPasswordSmtpTransporter();
+    const transporter = await this.getPasswordSmtpTransporter();
     const from = this.getMailFromAddress();
     await transporter.sendMail({
       from,

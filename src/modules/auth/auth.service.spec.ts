@@ -116,9 +116,10 @@ describe('AuthService', () => {
       const dto = { name: 'Agent', email: 'agent@example.com', password: 'pass123' };
       const result = await service.signUpAgent(dto);
       expect(result).toHaveProperty('user');
+      expect(result).toHaveProperty('accessToken');
       expect(userService.create).toHaveBeenCalledWith(dto, Role.Agent);
-      expect(userService.setEmailVerificationToken).toHaveBeenCalled();
-      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
+      expect(userService.setEmailVerificationToken).not.toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
   });
 

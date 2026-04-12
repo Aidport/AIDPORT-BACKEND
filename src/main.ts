@@ -1,4 +1,8 @@
+import { setDefaultResultOrder } from 'node:dns';
 import { NestFactory } from '@nestjs/core';
+
+/** Prefer IPv4 for outbound connections (many PaaS hosts have broken IPv6 routes to SMTP). */
+setDefaultResultOrder('ipv4first');
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { ValidationPipe } from './common/pipes/validation.pipe';
