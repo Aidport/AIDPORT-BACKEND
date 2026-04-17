@@ -1,6 +1,8 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { jwtExpiresInToMs } from '../../common/utils/jwt-expiry.util';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { LoginDto } from '../user/dto/login.dto';
@@ -13,18 +15,56 @@ import { Public } from '../../common/decorators/public.decorator';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  private authCookieName(): string {
+    return this.configService.get<string>('JWT_COOKIE_NAME')?.trim() || 'access_token';
+  }
+
+  private authCookieBase() {
+    const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || '7d';
+    const maxAgeMs = jwtExpiresInToMs(expiresIn);
+    const sameSiteRaw = (
+      this.configService.get<string>('JWT_COOKIE_SAMESITE') || 'lax'
+    ).toLowerCase();
+    const sameSite = (
+      ['lax', 'strict', 'none'].includes(sameSiteRaw) ? sameSiteRaw : 'lax'
+    ) as 'lax' | 'strict' | 'none';
+    const secureEnv = this.configService.get<string>('JWT_COOKIE_SECURE');
+    let secure =
+      secureEnv === 'true'
+        ? true
+        : secureEnv === 'false'
+          ? false
+          : this.configService.get<string>('NODE_ENV') === 'production';
+    if (sameSite === 'none' && !secure) {
+      secure = true;
+    }
+    const domain = this.configService.get<string>('JWT_COOKIE_DOMAIN')?.trim();
+    return {
+      maxAge: maxAgeMs,
+      httpOnly: true,
+      secure,
+      sameSite,
+      path: '/',
+      ...(domain ? { domain } : {}),
+    };
+  }
 
   private setAuthCookie(res: Response, accessToken: string) {
-    const cookieName = process.env.JWT_COOKIE_NAME || 'access_token';
-    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
-    res.cookie(cookieName, accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: maxAgeMs,
-      path: '/',
+    const name = this.authCookieName();
+    res.cookie(name, accessToken, {
+      ...this.authCookieBase(),
     });
+  }
+
+  private clearAuthCookie(res: Response) {
+    const name = this.authCookieName();
+    const { maxAge: _maxAge, ...opts } = this.authCookieBase();
+    res.clearCookie(name, opts);
   }
 
   @Public()
@@ -80,6 +120,19 @@ export class AuthController {
     const result = await this.authService.loginAgent(loginDto);
     this.setAuthCookie(res, result.accessToken);
     return result;
+  }
+
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Clear auth cookie',
+    description:
+      'Clears the httpOnly JWT cookie (same name as JWT_COOKIE_NAME, default access_token). Call from the browser with credentials.',
+  })
+  logout(@Res({ passthrough: true }) res: Response) {
+    this.clearAuthCookie(res);
+    return { message: 'Logged out' };
   }
 
   @Public()

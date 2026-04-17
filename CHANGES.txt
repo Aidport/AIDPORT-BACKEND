@@ -1,0 +1,36 @@
+Aidport backend — fixes applied (documents URLs, email, JWT cookies)
+====================================================================
+
+If Git shows nothing, your .git/objects may be corrupted (try: git fsck). These files contain the work:
+
+NEW
+---
+src/common/utils/jwt-expiry.util.ts
+  — Cookie maxAge matches JWT_EXPIRES_IN.
+
+MODIFIED
+--------
+src/modules/user/user.service.ts
+  — completeAgentProfile: preserves agentProfile.documentUrls when finishing profile.
+  — Legacy Mongo `agencyProfile` + `agencyLogo` (Atlas) synced with typed `agentProfile`; URLs persist.
+  — toAgentProfileResponse(): single serializer; public GET /agents uses same shape as /agent/me.
+src/modules/user/entities/user.entity.ts
+  — `agencyProfile` (Mixed) declared so Mongoose loads/saves legacy shape from clients/Atlas.
+src/modules/user/entities/agent-profile.schema.ts
+  — `agencyLogo` string field (logo URL; mirrors first of documentUrls when syncing).
+src/modules/user/dto/complete-agent-profile.dto.ts
+  — Optional `agencyLogo` and nested `agencyProfile` (whitelist-safe) merged into saves.
+src/modules/user/dto/update-agent-documents.dto.ts
+  — normalizeAgentDocumentUrlsInput accepts `agencyLogo` and `agencyProfile.agencyLogo`.
+src/modules/auth/auth.controller.ts
+  — Cookie options from env (JWT_COOKIE_SAMESITE, JWT_COOKIE_SECURE, JWT_COOKIE_DOMAIN, JWT_COOKIE_NAME).
+  — POST /auth/logout clears the httpOnly JWT cookie.
+src/modules/auth/auth.service.ts
+  — signUpAgent sends verification OTP when email is configured.
+src/integrations/email/email.service.ts
+  — Gmail OAuth also reads CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, REFRESH_TOKEN, GMAIL_NAME.
+src/modules/upload/upload.controller.ts
+  — mapUploaded() falls back to secure_url if path is missing.
+
+.env.example
+  — Documented cookie + OAuth alias variables.

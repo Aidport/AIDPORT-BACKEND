@@ -43,6 +43,18 @@ export function normalizeAgentDocumentUrlsInput(body: unknown): string[] {
     if (Array.isArray(raw)) {
       return raw.map(extract).filter((s) => s.length > 0);
     }
+    const nested = o.agencyProfile;
+    const fromNested =
+      nested && typeof nested === 'object'
+        ? String((nested as Record<string, unknown>).agencyLogo ?? '').trim()
+        : '';
+    const single =
+      (typeof o.agencyLogo === 'string' && o.agencyLogo.trim()) ||
+      fromNested ||
+      '';
+    if (single) {
+      return [single];
+    }
   }
   return [];
 }

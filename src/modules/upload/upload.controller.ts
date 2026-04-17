@@ -34,13 +34,22 @@ import {
 } from './dto/upload-mutation.dto';
 
 function mapUploaded(
-  file: Express.Multer.File & { path?: string; filename?: string },
+  file: Express.Multer.File & {
+    path?: string;
+    filename?: string;
+    secure_url?: string;
+  },
 ) {
+  const url =
+    file.path ||
+    file.secure_url ||
+    (file as { secureUrl?: string }).secureUrl ||
+    '';
   return {
     filename: file.filename,
     originalName: file.originalname,
-    url: file.path,
-    path: file.path,
+    url,
+    path: url,
   };
 }
 

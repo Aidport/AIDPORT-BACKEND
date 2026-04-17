@@ -30,6 +30,8 @@ export interface AgentProfileResponse {
   loadCapacity?: string;
   status?: AgentStatus;
   documentUrls?: string[];
+  /** Same as first document URL when clients only upload a logo. */
+  agencyLogo?: string;
   rates?: AgentRateLineResponse[];
   /** Standalone contra amount (optional; separate from rate lines). */
   contraPrice?: number;

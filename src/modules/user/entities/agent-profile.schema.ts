@@ -89,6 +89,10 @@ export class AgentProfile {
   @Prop({ type: [String], default: [] })
   documentUrls?: string[];
 
+  /** Single logo URL (many clients / legacy DB use this instead of `documentUrls`). */
+  @Prop()
+  agencyLogo?: string;
+
   /** Local / international / contra pricing lines (each has Mongo subdocument id) */
   @Prop({ type: [AgentRateLineSchema], default: [] })
   rates?: AgentRateLine[];

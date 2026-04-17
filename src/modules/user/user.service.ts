@@ -62,9 +62,22 @@ export class UserService {
   /** Step 2: authenticated agent completes company profile. */
   async completeAgentProfile(agentId: string, dto: CompleteAgentProfileDto) {
     const user = await this.userModel.findById(agentId).exec();
-    if (!user || user.role !== Role.Agent || !user.agentProfile) {
+    if (!user || user.role !== Role.Agent) {
       throw new ForbiddenException('Only agents can complete this profile');
     }
+    this.hydrateAgentProfileFromLegacy(user);
+    if (!user.agentProfile) {
+      throw new ForbiddenException('Agent profile not initialized');
+    }
+    const dtoExt = dto as CompleteAgentProfileDto & {
+      agencyProfile?: Record<string, unknown>;
+    };
+    const nestedLogo =
+      typeof dtoExt.agencyProfile?.agencyLogo === 'string'
+        ? dtoExt.agencyProfile.agencyLogo.trim()
+        : '';
+    const flatLogo = typeof dto.agencyLogo === 'string' ? dto.agencyLogo.trim() : '';
+    const incomingLogo = flatLogo || nestedLogo;
     const dateEstablished = new Date(dto.dateEstablished);
     const prevSub = user.agentProfile as AgentProfile & {
       toObject?: () => Record<string, unknown>;
@@ -73,6 +86,26 @@ export class UserService {
       typeof prevSub.toObject === 'function'
         ? prevSub.toObject()
         : { ...(prevSub as Record<string, unknown>) };
+    /** Prefer live `documentUrls` — `toObject()` can omit them; completing profile must not wipe uploaded docs. */
+    const fromLive = Array.isArray(user.agentProfile.documentUrls)
+      ? [...user.agentProfile.documentUrls]
+      : [];
+    const fromPlain = Array.isArray(prevPlain.documentUrls)
+      ? [...(prevPlain.documentUrls as string[])]
+      : [];
+    const mergedDocumentUrls =
+      dto.documentUrls !== undefined
+        ? dto.documentUrls
+        : incomingLogo
+          ? [incomingLogo]
+          : fromLive.length > 0
+            ? fromLive
+            : fromPlain;
+    const agencyLogo =
+      incomingLogo ||
+      (mergedDocumentUrls.length > 0 ? mergedDocumentUrls[0] : '') ||
+      (typeof prevPlain.agencyLogo === 'string' ? prevPlain.agencyLogo.trim() : '') ||
+      '';
     user.agentProfile = {
       ...prevPlain,
       status: (prevPlain.status as AgentStatus | undefined) ?? AgentStatus.PendingReview,
@@ -83,10 +116,8 @@ export class UserService {
       aboutCompany: dto.aboutCompany,
       transportModes: dto.transportModes,
       isVerified: (prevPlain.isVerified as boolean | undefined) ?? false,
-      documentUrls:
-        dto.documentUrls !== undefined
-          ? dto.documentUrls
-          : ((prevPlain.documentUrls as string[] | undefined) ?? []),
+      documentUrls: mergedDocumentUrls,
+      ...(agencyLogo ? { agencyLogo } : {}),
       rates: (prevPlain.rates as AgentProfile['rates'] | undefined) ?? [],
       ...(dto.contraPrice !== undefined
         ? { contraPrice: dto.contraPrice }
@@ -94,6 +125,7 @@ export class UserService {
           ? { contraPrice: prevPlain.contraPrice as number }
           : {}),
     } as AgentProfile;
+    this.syncLegacyAgencyProfile(user);
     user.isEmailVerified = true;
     await user.save();
     return this.toUserResponse(user);
@@ -109,7 +141,9 @@ export class UserService {
       throw new ForbiddenException('Agent profile not initialized');
     }
     user.agentProfile.documentUrls = dto.documentUrls;
+    user.agentProfile.agencyLogo = dto.documentUrls[0] ?? '';
     user.markModified('agentProfile');
+    this.syncLegacyAgencyProfile(user);
     await user.save();
     return this.toUserResponse(user);
   }
@@ -286,10 +320,117 @@ export class UserService {
     if (!user || user.role !== Role.Agent) {
       throw new ForbiddenException('Only agents can manage profile rates');
     }
+    this.hydrateAgentProfileFromLegacy(user);
     if (!user.agentProfile) {
       throw new ForbiddenException('Agent profile not initialized');
     }
     return user;
+  }
+
+  /** If Mongo only has legacy `agencyProfile` (no typed `agentProfile`), build one so API can update it. */
+  private hydrateAgentProfileFromLegacy(user: UserDocument): void {
+    if (user.agentProfile) {
+      return;
+    }
+    const legacy = (user as UserDocument & { agencyProfile?: Record<string, unknown> })
+      .agencyProfile;
+    if (!legacy || typeof legacy !== 'object') {
+      return;
+    }
+    user.agentProfile = this.mapLegacyAgencyToProfileShape(legacy) as AgentProfile;
+    user.markModified('agentProfile');
+  }
+
+  private mapLegacyAgencyToProfileShape(legacy: Record<string, unknown>): AgentProfile {
+    const logo = typeof legacy.agencyLogo === 'string' ? legacy.agencyLogo.trim() : '';
+    const rawUrls = legacy.documentUrls;
+    const urls =
+      Array.isArray(rawUrls) && rawUrls.length
+        ? rawUrls.map((u) => String(u)).filter((s) => s.length > 0)
+        : logo
+          ? [logo]
+          : [];
+    return {
+      status: AgentStatus.PendingReview,
+      rates: [],
+      documentUrls: urls,
+      ...(logo || urls[0] ? { agencyLogo: logo || urls[0] } : {}),
+      ...(typeof legacy.companyName === 'string' ? { companyName: legacy.companyName } : {}),
+      ...(typeof legacy.location === 'string' ? { location: legacy.location } : {}),
+      ...(typeof legacy.aboutCompany === 'string' ? { aboutCompany: legacy.aboutCompany } : {}),
+    } as AgentProfile;
+  }
+
+  /** Mirror typed profile into `agencyProfile` so Atlas / legacy clients see `agencyLogo` and URLs. */
+  private syncLegacyAgencyProfile(user: UserDocument): void {
+    if (!user.agentProfile) {
+      return;
+    }
+    const ap = this.agentProfileToPlain(user.agentProfile);
+    const urls = Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : [];
+    const logo =
+      typeof ap.agencyLogo === 'string' && ap.agencyLogo.trim()
+        ? ap.agencyLogo.trim()
+        : urls[0] || '';
+    const prev = (user as UserDocument & { agencyProfile?: Record<string, unknown> }).agencyProfile;
+    const prevObj = prev && typeof prev === 'object' ? { ...prev } : {};
+    user.set('agencyProfile', {
+      ...prevObj,
+      agencyLogo: logo,
+      documentUrls: urls,
+    });
+    user.markModified('agencyProfile');
+  }
+
+  private mergeAgentProfileSources(
+    user: UserDocument,
+  ): AgentProfile | Record<string, unknown> | undefined {
+    const typed = user.agentProfile;
+    const legacy = (user as UserDocument & { agencyProfile?: Record<string, unknown> }).agencyProfile;
+    if (typed && legacy) {
+      const tp = this.agentProfileToPlain(typed as AgentProfile);
+      const legUrls = (legacy as { documentUrls?: unknown }).documentUrls;
+      const mergedUrls =
+        Array.isArray(tp.documentUrls) && tp.documentUrls.length
+          ? tp.documentUrls
+          : Array.isArray(legUrls)
+            ? legUrls.map((u) => String(u))
+            : [];
+      return { ...legacy, ...tp, documentUrls: mergedUrls };
+    }
+    if (typed) {
+      return typed as AgentProfile;
+    }
+    if (legacy && typeof legacy === 'object') {
+      return this.mapLegacyAgencyToProfileShape(legacy);
+    }
+    return undefined;
+  }
+
+  private mergeLeanAgentProfiles(
+    doc: Record<string, unknown>,
+  ): AgentProfile | Record<string, unknown> | undefined {
+    const typed = doc.agentProfile;
+    const legacy = doc.agencyProfile;
+    if (typed && legacy) {
+      const tp = typed as AgentProfile;
+      const leg = legacy as Record<string, unknown>;
+      const legUrls = leg.documentUrls;
+      const mergedUrls =
+        Array.isArray(tp.documentUrls) && tp.documentUrls.length
+          ? tp.documentUrls
+          : Array.isArray(legUrls)
+            ? legUrls.map((u) => String(u))
+            : [];
+      return { ...leg, ...this.agentProfileToPlain(tp), documentUrls: mergedUrls };
+    }
+    if (typed) {
+      return typed as AgentProfile;
+    }
+    if (legacy && typeof legacy === 'object') {
+      return this.mapLegacyAgencyToProfileShape(legacy as Record<string, unknown>);
+    }
+    return undefined;
   }
 
   private findRateSubdoc(user: UserDocument, rateId: string): AgentRateLine {
@@ -342,6 +483,7 @@ export class UserService {
     if (!user || user.role !== Role.Agent) {
       throw new ForbiddenException('Only agents can perform this action');
     }
+    this.hydrateAgentProfileFromLegacy(user);
     const st = user.agentProfile?.status;
     if (
       st === AgentStatus.PendingReview ||
@@ -490,7 +632,7 @@ export class UserService {
     const [rawItems, total] = await Promise.all([
       this.userModel
         .find(match)
-        .select('name agentProfile createdAt isEmailVerified')
+        .select('name agentProfile agencyProfile createdAt isEmailVerified')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -501,10 +643,11 @@ export class UserService {
 
     const items = rawItems.map((doc) => {
       const d = doc as typeof doc & { createdAt?: Date; isEmailVerified?: boolean };
+      const row = doc as unknown as Record<string, unknown>;
       return {
         id: String(doc._id),
         name: doc.name,
-        agentProfile: doc.agentProfile,
+        agentProfile: this.toAgentProfileResponse(this.mergeLeanAgentProfiles(row)),
         isEmailVerified: d.isEmailVerified,
         createdAt: d.createdAt,
       };
@@ -531,10 +674,11 @@ export class UserService {
       throw new NotFoundException('Agent not found');
     }
     const d = doc as typeof doc & { createdAt?: Date; isEmailVerified?: boolean };
+    const row = doc as unknown as Record<string, unknown>;
     return {
       id: String(doc._id),
       name: doc.name,
-      agentProfile: doc.agentProfile,
+      agentProfile: this.toAgentProfileResponse(this.mergeLeanAgentProfiles(row)),
       isEmailVerified: d.isEmailVerified,
       createdAt: d.createdAt,
     };
@@ -569,6 +713,60 @@ export class UserService {
     return ap;
   }
 
+  /**
+   * Single serialization path for agent profiles (authenticated `toUserResponse`, public directory, GET /agents/:id).
+   * Accepts hydrated subdocs or lean plain objects.
+   */
+  toAgentProfileResponse(
+    apInput: AgentProfile | Record<string, unknown> | null | undefined,
+  ): AgentProfileResponse | undefined {
+    if (!apInput) {
+      return undefined;
+    }
+    const ap =
+      apInput &&
+      typeof apInput === 'object' &&
+      'toObject' in apInput &&
+      typeof (apInput as { toObject?: unknown }).toObject === 'function'
+        ? this.agentProfileToPlain(apInput as AgentProfile)
+        : (apInput as AgentProfile);
+    const rawUrls = ap.documentUrls ?? (apInput as Record<string, unknown>)['document_urls'];
+    const documentUrls = Array.isArray(rawUrls)
+      ? rawUrls.map((u) => String(u)).filter((s) => s.length > 0)
+      : [];
+    const logoFromAp =
+      typeof (ap as AgentProfile).agencyLogo === 'string'
+        ? (ap as AgentProfile).agencyLogo!.trim()
+        : '';
+    const legacyLogo =
+      typeof (apInput as Record<string, unknown>).agencyLogo === 'string'
+        ? String((apInput as Record<string, unknown>).agencyLogo).trim()
+        : '';
+    const agencyLogo = logoFromAp || legacyLogo || documentUrls[0] || undefined;
+    return {
+      pricingPlan: ap.pricingPlan,
+      companyName: ap.companyName,
+      dateEstablished: ap.dateEstablished
+        ? new Date(ap.dateEstablished as Date).toISOString()
+        : undefined,
+      location: ap.location,
+      aboutCompany: ap.aboutCompany,
+      transportModes: ap.transportModes,
+      isVerified: ap.isVerified,
+      logisticsId: ap.logisticsId,
+      trucksCount: ap.trucksCount,
+      loadCapacity: ap.loadCapacity,
+      status: ap.status,
+      documentUrls,
+      ...(agencyLogo ? { agencyLogo } : {}),
+      rates: Array.isArray(ap.rates)
+        ? ap.rates.map((r) => this.mapAgentRateLine(r as AgentRateLine))
+        : [],
+      contraPrice: ap.contraPrice,
+      category: ap.category,
+    };
+  }
+
   toUserResponse(user: UserDocument): UserResponse {
     const base: UserResponse = {
       id: String(user._id ?? (user as { id?: string }).id),
@@ -585,30 +783,10 @@ export class UserService {
       avatarUrl: user.avatarUrl,
       settings: user.settings,
     };
-    if (user.agentProfile) {
-      const ap = this.agentProfileToPlain(user.agentProfile);
-      const agentProfile: AgentProfileResponse = {
-        pricingPlan: ap.pricingPlan,
-        companyName: ap.companyName,
-        dateEstablished: ap.dateEstablished
-          ? new Date(ap.dateEstablished).toISOString()
-          : undefined,
-        location: ap.location,
-        aboutCompany: ap.aboutCompany,
-        transportModes: ap.transportModes,
-        isVerified: ap.isVerified,
-        logisticsId: ap.logisticsId,
-        trucksCount: ap.trucksCount,
-        loadCapacity: ap.loadCapacity,
-        status: ap.status,
-        documentUrls: Array.isArray(ap.documentUrls) ? [...ap.documentUrls] : [],
-        rates: Array.isArray(ap.rates)
-          ? ap.rates.map((r) => this.mapAgentRateLine(r as AgentRateLine))
-          : [],
-        contraPrice: ap.contraPrice,
-        category: ap.category,
-      };
-      return { ...base, agentProfile };
+    const merged = this.mergeAgentProfileSources(user);
+    if (merged) {
+      const agentProfile = this.toAgentProfileResponse(merged);
+      return agentProfile ? { ...base, agentProfile } : base;
     }
     return base;
   }

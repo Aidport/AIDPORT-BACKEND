@@ -51,7 +51,18 @@ export class AuthService {
   async signUpAgent(createUserDto: CreateUserDto) {
     const user = (await this.userService.create(createUserDto, Role.Agent)) as UserResponse;
     const token = this.generateToken(user.id, user.role);
-    // Mailing disabled for agent signup until SMTP is reliable (avoids 500 after user is created).
+    if (this.emailService.isConfigured()) {
+      const otp = randomBytes(4).toString('hex').toUpperCase();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
+      try {
+        await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup');
+      } catch (err) {
+        this.logger.warn(
+          `Agent signup verification email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
     return { user, ...token };
   }
 

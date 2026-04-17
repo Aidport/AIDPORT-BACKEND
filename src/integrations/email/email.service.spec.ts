@@ -56,5 +56,17 @@ describe('EmailService', () => {
       const s = module.get<EmailService>(EmailService);
       expect(s.isConfigured()).toBe(true);
     });
+
+    it('should return true when Gmail OAuth uses CLIENT_ID / REFRESH_TOKEN aliases', async () => {
+      const module = await createModuleWithEnv({
+        CLIENT_ID: 'id.apps.googleusercontent.com',
+        CLIENT_SECRET: 'secret',
+        REDIRECT_URI: 'https://developers.google.com/oauthplayground',
+        REFRESH_TOKEN: '1//token',
+        GMAIL_NAME: 'user@gmail.com',
+      });
+      const s = module.get<EmailService>(EmailService);
+      expect(s.isConfigured()).toBe(true);
+    });
   });
 });

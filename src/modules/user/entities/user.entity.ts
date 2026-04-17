@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Role } from '../../../common/decorators/roles.decorator';
 import { AgentProfile, AgentProfileSchema } from './agent-profile.schema';
 
@@ -90,6 +90,13 @@ export class User {
   /** Agent-only: company / fleet / verification */
   @Prop({ type: AgentProfileSchema })
   agentProfile?: AgentProfile;
+
+  /**
+   * Legacy / frontend shape (Atlas often has `agencyProfile.agencyLogo`).
+   * Kept in sync with `agentProfile` when the API writes; also used to hydrate if `agentProfile` is missing.
+   */
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  agencyProfile?: Record<string, unknown>;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUrl,
@@ -69,6 +70,25 @@ export class CompleteAgentProfileDto {
   @IsUrl({ require_protocol: true }, { each: true })
   @MaxLength(2048, { each: true })
   documentUrls?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Single logo URL (alias for `documentUrls[0]`; matches Mongo `agencyProfile.agencyLogo`).',
+    example: 'https://res.cloudinary.com/.../logo.png',
+  })
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(2048)
+  agencyLogo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Nested legacy payload `{ agencyLogo?, companyName?, ... }` merged into `agentProfile`.',
+  })
+  @IsOptional()
+  @IsObject()
+  agencyProfile?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     description: 'Standalone contra price (optional; separate from local/intl rates).',

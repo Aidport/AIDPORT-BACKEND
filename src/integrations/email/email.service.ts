@@ -29,6 +29,17 @@ export class EmailService {
 
   constructor(private configService: ConfigService) {}
 
+  /** Supports both `GMAIL_*` and common `.env` aliases (`CLIENT_ID`, `REFRESH_TOKEN`, …). */
+  private cfgTrim(...keys: string[]): string | undefined {
+    for (const key of keys) {
+      const v = this.configService.get<string>(key)?.trim();
+      if (v) {
+        return v;
+      }
+    }
+    return undefined;
+  }
+
   /** Resolves SMTP host to IPv4 when possible so PaaS without working IPv6 (e.g. Render) can reach Gmail. */
   private async getPasswordSmtpTransporter(): Promise<Transporter> {
     if (this.passwordSmtpTransporter) {
@@ -44,8 +55,8 @@ export class EmailService {
     const host = this.configService.get<string>('SMTP_HOST', 'smtp.gmail.com');
     const port = this.configService.get<number>('SMTP_PORT', 587);
     const secure = this.configService.get<boolean>('SMTP_SECURE', false);
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASS');
+    const user = this.cfgTrim('SMTP_USER');
+    const pass = this.cfgTrim('SMTP_PASS');
 
     if (!user || !pass) {
       throw new Error('SMTP_USER and SMTP_PASS must be configured for email');
@@ -86,11 +97,11 @@ export class EmailService {
 
   /** OAuth2 + Gmail API (googleapis) — matches a typical working Nodemailer `service: 'gmail'` setup. */
   private getGmailOAuthConfig(): GmailOAuthConfig | null {
-    const clientId = this.configService.get<string>('GMAIL_CLIENT_ID')?.trim();
-    const clientSecret = this.configService.get<string>('GMAIL_CLIENT_SECRET')?.trim();
-    const redirectUri = this.configService.get<string>('GMAIL_REDIRECT_URI')?.trim();
-    const refreshToken = this.configService.get<string>('GMAIL_REFRESH_TOKEN')?.trim();
-    const user = this.configService.get<string>('GMAIL_USER')?.trim();
+    const clientId = this.cfgTrim('GMAIL_CLIENT_ID', 'CLIENT_ID');
+    const clientSecret = this.cfgTrim('GMAIL_CLIENT_SECRET', 'CLIENT_SECRET');
+    const redirectUri = this.cfgTrim('GMAIL_REDIRECT_URI', 'REDIRECT_URI');
+    const refreshToken = this.cfgTrim('GMAIL_REFRESH_TOKEN', 'REFRESH_TOKEN');
+    const user = this.cfgTrim('GMAIL_USER', 'GMAIL_NAME');
     if (!clientId || !clientSecret || !redirectUri || !refreshToken || !user) {
       return null;
     }
@@ -121,10 +132,8 @@ export class EmailService {
   /** From address for SMTP-style sends (password SMTP or Gmail OAuth). */
   private getMailFromAddress(): string {
     return (
-      this.configService.get<string>('SMTP_FROM') ||
-      this.configService.get<string>('GMAIL_FROM') ||
-      this.configService.get<string>('GMAIL_USER') ||
-      this.configService.get<string>('SMTP_USER') ||
+      this.cfgTrim('SMTP_FROM', 'GMAIL_FROM', 'GMAIL_USER', 'GMAIL_NAME') ||
+      this.cfgTrim('SMTP_USER') ||
       'noreply@aidport.com'
     );
   }
@@ -176,10 +185,7 @@ export class EmailService {
     if (this.usesGmailOAuth()) {
       return true;
     }
-    return !!(
-      this.configService.get<string>('SMTP_USER') &&
-      this.configService.get<string>('SMTP_PASS')
-    );
+    return !!(this.cfgTrim('SMTP_USER') && this.cfgTrim('SMTP_PASS'));
   }
 
   async sendVerificationEmail(
