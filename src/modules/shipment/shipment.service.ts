@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -38,6 +39,8 @@ export type ShipmentAdminFilter =
 
 @Injectable()
 export class ShipmentService {
+  private readonly logger = new Logger(ShipmentService.name);
+
   constructor(
     @InjectModel(Shipment.name) private shipmentModel: Model<ShipmentDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -682,6 +685,34 @@ export class ShipmentService {
         ? `${shipment.originCity} → ${shipment.destinationCity}`
         : undefined,
     );
-    return shipment.save();
+    const saved = await shipment.save();
+
+    if (this.emailService.isConfigured() && agent.email) {
+      let shipperName: string | undefined;
+      if (saved.createdBy) {
+        const shipper = await this.userModel
+          .findById(saved.createdBy)
+          .select('name')
+          .lean()
+          .exec();
+        shipperName = shipper?.name;
+      }
+      this.emailService
+        .sendShipmentAssignedToAgentEmail(agent.email, {
+          agentName: agent.name,
+          shipmentId: String(saved._id),
+          cargoName: saved.cargoName,
+          originCity: saved.originCity,
+          destinationCity: saved.destinationCity,
+          shipperName,
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Shipment assigned email failed for ${agent.email}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
+
+    return saved;
   }
 }

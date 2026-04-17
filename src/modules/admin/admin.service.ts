@@ -110,6 +110,7 @@ export class AdminService {
           _shipmentDocs: 0,
           passwordHash: 0,
           passwordResetToken: 0,
+          resetUrlToken: 0,
           emailVerificationToken: 0,
           refreshToken: 0,
         },
@@ -162,7 +163,7 @@ export class AdminService {
       this.userModel
         .find(match)
         .select(
-          '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
+          '-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken',
         )
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -187,7 +188,7 @@ export class AdminService {
     const agent = await this.userModel
       .findOne({ _id: id, role: Role.Agent })
       .select(
-        '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
+        '-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken',
       )
       .lean()
       .exec();
@@ -273,7 +274,7 @@ export class AdminService {
     const u = await this.userModel
       .findOne({ _id: id, role: Role.User })
       .select(
-        '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
+        '-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken',
       )
       .lean()
       .exec();
@@ -288,7 +289,7 @@ export class AdminService {
     const u = await this.userModel
       .findOneAndUpdate({ _id: id, role: Role.User }, { $set: dto }, { new: true })
       .select(
-        '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
+        '-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken',
       )
       .lean()
       .exec();
@@ -304,7 +305,7 @@ export class AdminService {
     const u = await this.userModel
       .findById(id)
       .select(
-        '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
+        '-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken',
       )
       .lean()
       .exec();
@@ -329,7 +330,7 @@ export class AdminService {
       this.userModel
         .find(match)
         .select(
-          '-passwordHash -passwordResetToken -emailVerificationToken -refreshToken',
+          '-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken',
         )
         .sort({ createdAt: -1 })
         .skip(skip)

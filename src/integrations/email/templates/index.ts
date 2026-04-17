@@ -10,3 +10,11 @@ export {
   type InvoiceParcelLine,
 } from './shipment-invoice.template';
 export { buildShipmentInvoiceAgentNotifyEmail } from './shipment-invoice-agent-notify.template';
+export {
+  buildLoginNotificationEmail,
+  type LoginNotificationParams,
+} from './login-notification.template';
+export {
+  buildShipmentAssignedToAgentEmail,
+  type ShipmentAssignedAgentParams,
+} from './shipment-assigned-agent.template';

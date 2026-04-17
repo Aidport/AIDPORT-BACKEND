@@ -11,12 +11,16 @@ import {
   type GmailOAuthConfig,
 } from './gmail-oauth.transport';
 import {
+  buildLoginNotificationEmail,
   buildPasswordChangedEmail,
   buildPasswordResetEmail,
+  buildShipmentAssignedToAgentEmail,
   buildShipmentInvoiceAgentNotifyEmail,
   buildShipmentInvoiceEmail,
   buildVerificationEmail,
   type InvoiceParcelLine,
+  type LoginNotificationParams,
+  type ShipmentAssignedAgentParams,
   type VerificationVariant,
 } from './templates';
 
@@ -201,14 +205,34 @@ export class EmailService {
   async sendPasswordResetEmail(
     to: string,
     name: string,
-    resetToken: string,
+    userId: string,
+    resetUrlToken: string,
   ): Promise<void> {
-    const { subject, html, text } = buildPasswordResetEmail(name, resetToken);
+    const { subject, html, text } = buildPasswordResetEmail(name, userId, resetUrlToken);
     await this.sendMail({ to, subject, html, text });
   }
 
   async sendPasswordChangedEmail(to: string, name: string): Promise<void> {
     const { subject, html, text } = buildPasswordChangedEmail(name);
+    await this.sendMail({ to, subject, html, text });
+  }
+
+  /** After each successful login (optional IP / User-Agent from request). */
+  async sendLoginNotificationEmail(
+    to: string,
+    name: string,
+    params: LoginNotificationParams,
+  ): Promise<void> {
+    const { subject, html, text } = buildLoginNotificationEmail(name, params);
+    await this.sendMail({ to, subject, html, text });
+  }
+
+  /** Admin assigned this shipment to the agent (after payment). */
+  async sendShipmentAssignedToAgentEmail(
+    to: string,
+    params: ShipmentAssignedAgentParams,
+  ): Promise<void> {
+    const { subject, html, text } = buildShipmentAssignedToAgentEmail(params);
     await this.sendMail({ to, subject, html, text });
   }
 

@@ -20,6 +20,12 @@ import { Role } from '../../common/decorators/roles.decorator';
 import { UserResponse } from '../user/types/user-response.types';
 import { EmailService } from '../../integrations/email/email.service';
 
+/** Optional request metadata for login notification emails. */
+export type LoginClientMeta = {
+  ip?: string;
+  userAgent?: string;
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -70,7 +76,7 @@ export class AuthService {
     return this.signUp(createUserDto, Role.Admin);
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, clientMeta?: LoginClientMeta) {
     const user = await this.userService.findByEmail(loginDto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -89,12 +95,26 @@ export class AuthService {
     }
     const userResponse = this.userService.toUserResponse(user);
     const token = this.generateToken(userResponse.id, userResponse.role);
+    if (this.emailService.isConfigured()) {
+      const loggedInAtIso = new Date().toISOString();
+      this.emailService
+        .sendLoginNotificationEmail(user.email, user.name, {
+          loggedInAtIso,
+          ip: clientMeta?.ip,
+          userAgent: clientMeta?.userAgent,
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Login notification email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
     return { user: userResponse, ...token };
   }
 
   /** Agent portal login — rejects non-agent accounts (strict RBAC). */
-  async loginAgent(loginDto: LoginDto) {
-    const result = await this.login(loginDto);
+  async loginAgent(loginDto: LoginDto, clientMeta?: LoginClientMeta) {
+    const result = await this.login(loginDto, clientMeta);
     if (result.user.role !== Role.Agent) {
       throw new ForbiddenException('Only agent accounts can sign in here');
     }
@@ -117,7 +137,12 @@ export class AuthService {
       expiresAt,
     );
     try {
-      await this.emailService.sendPasswordResetEmail(user.email, user.name, token);
+      await this.emailService.sendPasswordResetEmail(
+        user.email,
+        user.name,
+        String(user._id),
+        token,
+      );
     } catch (err) {
       this.logger.warn(
         `Password reset email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
@@ -127,7 +152,25 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const user = await this.userService.findByResetToken(dto.token);
+    const legacy = dto.token?.trim();
+    const uid = dto.uid?.trim();
+    const reset = dto.reset?.trim();
+    const hasPair = !!(uid && reset);
+    const hasLegacy = !!legacy;
+
+    if (!hasLegacy && !hasPair) {
+      throw new BadRequestException(
+        'Provide either token (legacy) or uid and reset from the reset link.',
+      );
+    }
+    if (hasLegacy && hasPair) {
+      throw new BadRequestException('Provide either token or uid and reset, not both.');
+    }
+
+    let user = hasLegacy
+      ? await this.userService.findByResetToken(legacy!)
+      : await this.userService.findByResetUrlParams(uid!, reset!);
+
     if (!user) {
       throw new BadRequestException('Invalid or expired reset token');
     }

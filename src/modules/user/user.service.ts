@@ -498,6 +498,7 @@ export class UserService {
     return this.userModel
       .findByIdAndUpdate(userId, {
         passwordResetToken: token,
+        resetUrlToken: token,
         passwordResetExpires: expiresAt,
       })
       .exec() as Promise<UserDocument>;
@@ -512,12 +513,27 @@ export class UserService {
       .exec();
   }
 
+  /** Reset link with `uid` + `reset` query params (see `resetUrlToken` on user). */
+  async findByResetUrlParams(uid: string, reset: string): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(uid)) {
+      return null;
+    }
+    return this.userModel
+      .findOne({
+        _id: new Types.ObjectId(uid),
+        resetUrlToken: reset,
+        passwordResetExpires: { $gt: new Date() },
+      })
+      .exec();
+  }
+
   async resetPassword(userId: string, newPassword: string): Promise<void> {
     const hash = await this.encryptionService.hash(newPassword);
     await this.userModel
       .findByIdAndUpdate(userId, {
         passwordHash: hash,
         passwordResetToken: undefined,
+        resetUrlToken: undefined,
         passwordResetExpires: undefined,
       })
       .exec();
@@ -690,7 +706,7 @@ export class UserService {
     const [items, total] = await Promise.all([
       this.userModel
         .find(query)
-        .select('-passwordHash -passwordResetToken -emailVerificationToken -refreshToken')
+        .select('-passwordHash -passwordResetToken -resetUrlToken -emailVerificationToken -refreshToken')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)

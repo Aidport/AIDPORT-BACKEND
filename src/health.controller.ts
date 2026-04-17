@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Redirect } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from './common/decorators/public.decorator';
 
@@ -15,5 +15,13 @@ export class HealthController {
   @Get('health')
   healthCheck() {
     return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  /** Pretty forgot-password page (`public/forgot-password.html`). */
+  @Public()
+  @Get('forgot-password')
+  @Redirect('/forgot-password.html', 302)
+  forgotPasswordPage() {
+    return;
   }
 }

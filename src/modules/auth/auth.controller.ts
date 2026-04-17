@@ -1,5 +1,13 @@
-import { Controller, Post, Body, Res, HttpCode, HttpStatus } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { jwtExpiresInToMs } from '../../common/utils/jwt-expiry.util';
@@ -104,9 +112,13 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto, {
+      ip: req.ip || req.socket?.remoteAddress,
+      userAgent: req.get('user-agent') || undefined,
+    });
     this.setAuthCookie(res, result.accessToken);
     return result;
   }
@@ -115,9 +127,13 @@ export class AuthController {
   @Post('login/agent')
   async loginAgent(
     @Body() loginDto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.loginAgent(loginDto);
+    const result = await this.authService.loginAgent(loginDto, {
+      ip: req.ip || req.socket?.remoteAddress,
+      userAgent: req.get('user-agent') || undefined,
+    });
     this.setAuthCookie(res, result.accessToken);
     return result;
   }

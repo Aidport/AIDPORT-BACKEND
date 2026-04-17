@@ -45,6 +45,7 @@ describe('AuthService', () => {
             create: jest.fn().mockResolvedValue(mockUser),
             findByEmail: jest.fn(),
             findByResetToken: jest.fn(),
+            findByResetUrlParams: jest.fn(),
             findByEmailAndVerificationOtp: jest.fn(),
             setPasswordResetToken: jest.fn(),
             setEmailVerificationToken: jest.fn(),
@@ -83,6 +84,8 @@ describe('AuthService', () => {
             sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
             sendPasswordChangedEmail: jest.fn().mockResolvedValue(undefined),
             sendShipmentInvoiceEmail: jest.fn().mockResolvedValue(undefined),
+            sendLoginNotificationEmail: jest.fn().mockResolvedValue(undefined),
+            sendShipmentAssignedToAgentEmail: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -118,8 +121,8 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('user');
       expect(result).toHaveProperty('accessToken');
       expect(userService.create).toHaveBeenCalledWith(dto, Role.Agent);
-      expect(userService.setEmailVerificationToken).not.toHaveBeenCalled();
-      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
+      expect(userService.setEmailVerificationToken).toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
   });
 
@@ -132,6 +135,7 @@ describe('AuthService', () => {
       });
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('user');
+      expect(emailService.sendLoginNotificationEmail).toHaveBeenCalled();
     });
 
     it('should throw UnauthorizedException for invalid email', async () => {
@@ -220,6 +224,24 @@ describe('AuthService', () => {
         'test@example.com',
         'Test User',
       );
+    });
+
+    it('should reset password when uid and reset valid', async () => {
+      jest.spyOn(userService, 'findByResetUrlParams').mockResolvedValue(mockUserDocument as any);
+      const result = await service.resetPassword({
+        uid: 'userId123',
+        reset: 'opaque-segment',
+        newPassword: 'newpass123',
+      });
+      expect(result.message).toBe('Password has been reset successfully');
+      expect(userService.findByResetUrlParams).toHaveBeenCalledWith('userId123', 'opaque-segment');
+      expect(userService.resetPassword).toHaveBeenCalledWith('userId123', 'newpass123');
+    });
+
+    it('should reject when neither token nor uid+reset provided', async () => {
+      await expect(
+        service.resetPassword({ newPassword: 'newpass123' } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

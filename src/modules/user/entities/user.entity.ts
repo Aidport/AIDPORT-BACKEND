@@ -69,6 +69,10 @@ export class User {
   @Prop()
   passwordResetToken?: string;
 
+  /** Opaque segment for reset URL (`?uid=…&reset=…`). Cleared after successful reset. */
+  @Prop()
+  resetUrlToken?: string;
+
   @Prop()
   passwordResetExpires?: Date;
 
