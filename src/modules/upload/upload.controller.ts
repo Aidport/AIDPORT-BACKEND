@@ -19,14 +19,17 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FileValidationPipe } from '../../common/pipes/file-validation.pipe';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
 import { cloudinaryMulterStorage, uploadLimits } from './upload.storage';
 import { UploadService } from './upload.service';
+import { UserService } from '../user/user.service';
 import {
   BatchDeleteUploadDto,
   DeleteUploadDto,
@@ -86,7 +89,10 @@ function parseUrlArrayField(raw: unknown, field: string): string[] {
 @Controller('upload')
 @UseGuards(JwtAuthGuard)
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+  constructor(
+    private readonly uploadService: UploadService,
+    private readonly userService: UserService,
+  ) {}
 
   @Get('resource')
   @ApiOperation({
@@ -127,7 +133,14 @@ export class UploadController {
     description:
       'Multipart: `files` (0–10 new files). Form fields `existingUrls` and `removeUrls` are JSON string arrays of Cloudinary URLs. ' +
       'Removals are deleted from Cloudinary first, then new files are merged after `existingUrls`. ' +
-      '`existingUrls` must not overlap `removeUrls`.',
+      '`existingUrls` must not overlap `removeUrls`. ' +
+      'Query `attachTo=agent` (agents only) appends new file URLs to `agentProfile.documentUrls` so they appear on GET /agent/me.',
+  })
+  @ApiQuery({
+    name: 'attachTo',
+    required: false,
+    description: 'Set to `agent` to append newly uploaded file URLs to the agent profile (same as POST /upload/single).',
+    enum: ['agent'],
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -160,6 +173,8 @@ export class UploadController {
     @UploadedFiles(new FileValidationPipe()) files: Express.Multer.File[] | undefined,
     @Body('existingUrls') existingUrlsRaw?: string,
     @Body('removeUrls') removeUrlsRaw?: string,
+    @Query('attachTo') attachTo?: string,
+    @CurrentUser('id') userId?: string,
   ) {
     const existingUrls = parseUrlArrayField(existingUrlsRaw, 'existingUrls');
     const removeUrls = parseUrlArrayField(removeUrlsRaw, 'removeUrls');
@@ -179,19 +194,37 @@ export class UploadController {
     );
     const newUrls = added.map((a) => a.url).filter(Boolean) as string[];
 
-    return {
+    const base = {
       urls: [...existingUrls, ...newUrls],
       added,
       removed: removalResult.deleted,
       removalFailed: removalResult.failed.length ? removalResult.failed : undefined,
     };
+
+    if (attachTo === 'agent' && newUrls.length > 0 && userId) {
+      const userResp = await this.userService.appendAgentDocumentUrls(userId, newUrls);
+      return {
+        ...base,
+        savedToAgentProfile: true,
+        agentProfile: userResp.agentProfile,
+      };
+    }
+
+    return base;
   }
 
   @Post('single')
   @ApiOperation({
     summary: 'Upload a single file to Cloudinary',
     description:
-      'Multipart field name: `file`. Max 10MB. Images, video, PDF, and Word docs via Multer + CloudinaryStorage.',
+      'Multipart field name: `file`. Max 10MB. Images, video, PDF, and Word docs via Multer + CloudinaryStorage. ' +
+      'Query `attachTo=agent` (agents only) appends the returned URL to `agentProfile.documentUrls` so GET /agent/me includes it.',
+  })
+  @ApiQuery({
+    name: 'attachTo',
+    required: false,
+    description: 'Set to `agent` to save the uploaded file URL on the authenticated agent profile.',
+    enum: ['agent'],
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -209,20 +242,38 @@ export class UploadController {
       limits: uploadLimits,
     }),
   )
-  uploadSingle(
+  async uploadSingle(
     @UploadedFile(new FileValidationPipe()) file: Express.Multer.File | undefined,
+    @Query('attachTo') attachTo?: string,
+    @CurrentUser('id') userId?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    return mapUploaded(file as Express.Multer.File & { path?: string; filename?: string });
+    const mapped = mapUploaded(file as Express.Multer.File & { path?: string; filename?: string });
+    if (attachTo === 'agent' && userId && mapped.url) {
+      const userResp = await this.userService.appendAgentDocumentUrls(userId, [mapped.url]);
+      return {
+        ...mapped,
+        savedToAgentProfile: true,
+        agentProfile: userResp.agentProfile,
+      };
+    }
+    return mapped;
   }
 
   @Post('multiple')
   @ApiOperation({
     summary: 'Upload up to 10 files to Cloudinary',
     description:
-      'Multipart field name: `files` (array). Max 10MB per file. Same types as single upload.',
+      'Multipart field name: `files` (array). Max 10MB per file. Same types as single upload. ' +
+      'Query `attachTo=agent` appends all returned URLs to the agent profile.',
+  })
+  @ApiQuery({
+    name: 'attachTo',
+    required: false,
+    description: 'Set to `agent` to save all uploaded file URLs on the authenticated agent profile.',
+    enum: ['agent'],
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -244,14 +295,28 @@ export class UploadController {
       limits: uploadLimits,
     }),
   )
-  uploadMultiple(
+  async uploadMultiple(
     @UploadedFiles(new FileValidationPipe()) files: Express.Multer.File[] | undefined,
+    @Query('attachTo') attachTo?: string,
+    @CurrentUser('id') userId?: string,
   ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
-    return files.map((file) =>
+    const mapped = files.map((file) =>
       mapUploaded(file as Express.Multer.File & { path?: string; filename?: string }),
     );
+    if (attachTo === 'agent' && userId) {
+      const urls = mapped.map((m) => m.url).filter(Boolean) as string[];
+      if (urls.length > 0) {
+        const userResp = await this.userService.appendAgentDocumentUrls(userId, urls);
+        return {
+          files: mapped,
+          savedToAgentProfile: true,
+          agentProfile: userResp.agentProfile,
+        };
+      }
+    }
+    return mapped;
   }
 }

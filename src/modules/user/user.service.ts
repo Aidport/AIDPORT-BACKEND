@@ -131,6 +131,43 @@ export class UserService {
     return this.toUserResponse(user);
   }
 
+  /**
+   * Append new Cloudinary URLs to `agentProfile.documentUrls` (deduped, order preserved).
+   * Used when POST /upload?attachTo=agent so documents appear on GET /agent/me without a second request.
+   */
+  async appendAgentDocumentUrls(agentId: string, newUrls: string[]) {
+    const user = await this.userModel.findById(agentId).exec();
+    if (!user || user.role !== Role.Agent) {
+      throw new ForbiddenException('Only agents can persist uploads to the agent profile');
+    }
+    if (!user.agentProfile) {
+      throw new ForbiddenException('Agent profile not initialized');
+    }
+    const incoming = newUrls.map((u) => String(u).trim()).filter(Boolean);
+    if (incoming.length === 0) {
+      return this.toUserResponse(user);
+    }
+    const existing = Array.isArray(user.agentProfile.documentUrls)
+      ? [...user.agentProfile.documentUrls]
+      : [];
+    const seen = new Set(existing);
+    for (const u of incoming) {
+      if (!seen.has(u)) {
+        existing.push(u);
+        seen.add(u);
+      }
+    }
+    user.agentProfile.documentUrls = existing;
+    const first = existing[0];
+    if (first) {
+      user.agentProfile.agencyLogo = first;
+    }
+    user.markModified('agentProfile');
+    this.syncLegacyAgencyProfile(user);
+    await user.save();
+    return this.toUserResponse(user);
+  }
+
   /** Set or replace `agentProfile.documentUrls` (upload returns URLs; this persists them). */
   async updateAgentDocumentUrls(agentId: string, dto: UpdateAgentDocumentsDto) {
     const user = await this.userModel.findById(agentId).exec();
