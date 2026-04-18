@@ -18,6 +18,7 @@ import { UpdateInternationalAgentRateDto } from './dto/update-international-agen
 import { UpdateLocalAgentRateDto } from './dto/update-local-agent-rate.dto';
 import { AddContraAgentRateDto } from './dto/add-contra-agent-rate.dto';
 import { UpdateContraAgentRateDto } from './dto/update-contra-agent-rate.dto';
+import { UpdateAgentPricingPlanDto } from './dto/update-agent-pricing-plan.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
@@ -361,6 +362,15 @@ export class UserService {
   async clearAgentContraPrice(agentId: string) {
     const user = await this.loadAgentWithProfile(agentId);
     user.agentProfile!.contraPrice = undefined;
+    await user.save();
+    return this.toUserResponse(user);
+  }
+
+  async updateAgentPricingPlan(agentId: string, dto: UpdateAgentPricingPlanDto) {
+    const user = await this.loadAgentWithProfile(agentId);
+    user.agentProfile!.pricingPlan = dto.pricingPlan;
+    user.markModified('agentProfile');
+    this.syncLegacyAgencyProfile(user);
     await user.save();
     return this.toUserResponse(user);
   }

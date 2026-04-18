@@ -19,6 +19,7 @@ import { UpdateLocalAgentRateDto } from '../user/dto/update-local-agent-rate.dto
 import { AddContraAgentRateDto } from '../user/dto/add-contra-agent-rate.dto';
 import { UpdateContraAgentRateDto } from '../user/dto/update-contra-agent-rate.dto';
 import { SetAgentContraPriceDto } from '../user/dto/set-agent-contra-price.dto';
+import { UpdateAgentPricingPlanDto } from '../user/dto/update-agent-pricing-plan.dto';
 
 @Injectable()
 export class AgentService {
@@ -34,6 +35,10 @@ export class AgentService {
 
   completeProfile(agentId: string, dto: CompleteAgentProfileDto) {
     return this.userService.completeAgentProfile(agentId, dto);
+  }
+
+  updatePricingPlan(agentId: string, dto: UpdateAgentPricingPlanDto) {
+    return this.userService.updateAgentPricingPlan(agentId, dto);
   }
 
   async updateDocuments(agentId: string, body: unknown) {

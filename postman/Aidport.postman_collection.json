@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`). Public GET /agents and GET /agents/:id (includes `documentUrls`). Rates: local, international (countries optional), contra (price-only) + standalone `PATCH /agent/profile/contra-price`. Shipments: Admin PATCH mark-paid body `{ \"amountPaid\"?: number }` sets `amountPaid`/`paidAt`. Admin: send-invoice, assign. Agent: shipment rates may include `type: contra`. Upload CRUD. See collection variables.",
+    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`). `PATCH /agent/plan` updates `pricingPlan` only (`basic` | `premium`). Public GET /agents and GET /agents/:id (includes `documentUrls`). Rates: local, international (countries optional), contra (price-only) + standalone `PATCH /agent/profile/contra-price`. Shipments: Admin PATCH mark-paid body `{ \"amountPaid\"?: number }` sets `amountPaid`/`paidAt`. Admin: send-invoice, assign. Agent: shipment rates may include `type: contra`. Upload CRUD. See collection variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -499,6 +499,24 @@
           "name": "Me",
           "description": "Returns full agent user including `agentProfile.documentUrls`, `rates`, `contraPrice`.",
           "request": { "method": "GET", "url": "{{baseUrl}}/agent/me" }
+        },
+        {
+          "name": "Update pricing plan",
+          "description": "PATCH `agentProfile.pricingPlan` only (`basic` | `premium`). Agent JWT; requires agent profile initialized.",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"premium\"\n}" },
+            "url": "{{baseUrl}}/agent/plan"
+          },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"agentProfile\": {\n    \"pricingPlan\": \"premium\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"status\": \"pending_review\"\n  }\n}"
+          }]
         },
         {
           "name": "Update documents (URLs)",

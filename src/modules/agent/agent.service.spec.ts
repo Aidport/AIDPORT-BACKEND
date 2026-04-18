@@ -17,6 +17,7 @@ describe('AgentService', () => {
     assertAgentCanOperate: jest.Mock;
     findById: jest.Mock;
     completeAgentProfile: jest.Mock;
+    updateAgentPricingPlan: jest.Mock;
   };
   let quotesService: { findOpenForAgents: jest.Mock; acceptQuoteByAgent: jest.Mock };
   let shipmentService: { agentSetRates: jest.Mock };
@@ -26,6 +27,7 @@ describe('AgentService', () => {
       assertAgentCanOperate: jest.fn().mockResolvedValue(undefined),
       findById: jest.fn().mockResolvedValue({ id: 'a1', role: 'agent' }),
       completeAgentProfile: jest.fn().mockResolvedValue({ id: 'a1' }),
+      updateAgentPricingPlan: jest.fn().mockResolvedValue({ id: 'a1' }),
     };
     quotesService = {
       findOpenForAgents: jest.fn().mockResolvedValue({ items: [] }),
@@ -67,6 +69,12 @@ describe('AgentService', () => {
     };
     await service.completeProfile('a1', dto);
     expect(userService.completeAgentProfile).toHaveBeenCalledWith('a1', dto);
+  });
+
+  it('updatePricingPlan delegates to UserService.updateAgentPricingPlan', async () => {
+    const dto = { pricingPlan: AgentPricingPlan.Premium };
+    await service.updatePricingPlan('a1', dto);
+    expect(userService.updateAgentPricingPlan).toHaveBeenCalledWith('a1', dto);
   });
 
   it('listOpenQuotes asserts agent then lists quotes', async () => {

@@ -27,6 +27,7 @@ import { UpdateLocalAgentRateDto } from '../user/dto/update-local-agent-rate.dto
 import { AddContraAgentRateDto } from '../user/dto/add-contra-agent-rate.dto';
 import { UpdateContraAgentRateDto } from '../user/dto/update-contra-agent-rate.dto';
 import { SetAgentContraPriceDto } from '../user/dto/set-agent-contra-price.dto';
+import { UpdateAgentPricingPlanDto } from '../user/dto/update-agent-pricing-plan.dto';
 
 @ApiTags('Agent')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -61,6 +62,19 @@ export class AgentController {
     @Body() dto: CompleteAgentProfileDto,
   ) {
     return this.agentService.completeProfile(agentId, dto);
+  }
+
+  @Patch('plan')
+  @ApiOperation({
+    summary: 'Update pricing plan',
+    description:
+      'Sets `agentProfile.pricingPlan` (`basic` | `premium`) without resubmitting the full profile.',
+  })
+  updatePlan(
+    @CurrentUser('id') agentId: string,
+    @Body() dto: UpdateAgentPricingPlanDto,
+  ) {
+    return this.agentService.updatePricingPlan(agentId, dto);
   }
 
   @Patch('documents')
