@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -23,7 +24,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FileValidationPipe } from '../../common/pipes/file-validation.pipe';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
@@ -112,13 +115,35 @@ export class UploadController {
     private readonly userService: UserService,
   ) {}
 
+  @Public()
   @Get('resource')
   @ApiOperation({
     summary: 'Get Cloudinary resource metadata (read)',
-    description: 'Returns Cloudinary API resource details for a delivery URL in this account.',
+    description:
+      'No JWT required. Returns Cloudinary API resource details for a delivery URL in this account. ' +
+      'To **view** a file in the browser, prefer opening the stored `https://res.cloudinary.com/...` URL directly, or use GET /upload/open.',
   })
   async getResource(@Query() query: GetUploadResourceQueryDto) {
     return this.uploadService.getResourceByUrl(query.url);
+  }
+
+  /**
+   * Public 302 to the Cloudinary URL — use when something must hit this API host first (iframes, legacy links).
+   * Prefer linking to `res.cloudinary.com` directly to avoid an extra hop.
+   */
+  @Public()
+  @Get('open')
+  @ApiOperation({
+    summary: 'Redirect to file on Cloudinary (public)',
+    description:
+      'Query `url` = full HTTPS delivery URL for this CLOUDINARY_CLOUD_NAME. Returns 302. No auth.',
+  })
+  openDeliveryUrl(
+    @Query() query: GetUploadResourceQueryDto,
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    this.uploadService.assertDeliveryUrlInAccount(query.url);
+    res.redirect(302, query.url);
   }
 
   @Delete()

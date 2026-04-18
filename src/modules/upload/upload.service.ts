@@ -52,6 +52,11 @@ export class UploadService {
     return { deleted, failed };
   }
 
+  /** Same account check as metadata fetch — for public redirect endpoint. */
+  assertDeliveryUrlInAccount(url: string): void {
+    this.parseAndAuthorize(url);
+  }
+
   /** Cloudinary API resource metadata (read). */
   async getResourceByUrl(url: string): Promise<Record<string, unknown>> {
     const parsed = this.parseAndAuthorize(url);
