@@ -61,7 +61,8 @@ export class CompleteAgentProfileDto {
   @ApiPropertyOptional({
     type: [String],
     description:
-      'HTTPS URLs from POST /upload (e.g. PDFs or Word docs). Omit to keep existing links.',
+      'HTTPS URLs when replacing the full list. If omitted, or `[]`, existing `documentUrls` from uploads are kept. ' +
+      'To clear documents use PATCH /agent/documents with [].',
     example: ['https://res.cloudinary.com/.../doc.pdf'],
   })
   @IsOptional()

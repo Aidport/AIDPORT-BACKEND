@@ -1,6 +1,7 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
+  "setupFiles": ["<rootDir>/setup-rate-limit.ts"],
   "moduleNameMapper": {
     "^src/(.*)$": "<rootDir>/../src/$1"
   },

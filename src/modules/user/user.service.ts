@@ -93,9 +93,14 @@ export class UserService {
     const fromPlain = Array.isArray(prevPlain.documentUrls)
       ? [...(prevPlain.documentUrls as string[])]
       : [];
+    /** Non-empty only: clients often send `documentUrls: []` for “no change”; that must not wipe uploads. */
+    const explicitDocs =
+      Array.isArray(dto.documentUrls) && dto.documentUrls.length > 0
+        ? [...dto.documentUrls]
+        : undefined;
     const mergedDocumentUrls =
-      dto.documentUrls !== undefined
-        ? dto.documentUrls
+      explicitDocs !== undefined
+        ? explicitDocs
         : incomingLogo
           ? [incomingLogo]
           : fromLive.length > 0
@@ -141,7 +146,11 @@ export class UserService {
       throw new ForbiddenException('Only agents can persist uploads to the agent profile');
     }
     if (!user.agentProfile) {
-      throw new ForbiddenException('Agent profile not initialized');
+      user.agentProfile = {
+        status: AgentStatus.PendingReview,
+        rates: [],
+        documentUrls: [],
+      } as AgentProfile;
     }
     const incoming = newUrls.map((u) => String(u).trim()).filter(Boolean);
     if (incoming.length === 0) {
@@ -175,7 +184,11 @@ export class UserService {
       throw new ForbiddenException('Only agents can update document URLs');
     }
     if (!user.agentProfile) {
-      throw new ForbiddenException('Agent profile not initialized');
+      user.agentProfile = {
+        status: AgentStatus.PendingReview,
+        rates: [],
+        documentUrls: [],
+      } as AgentProfile;
     }
     user.agentProfile.documentUrls = dto.documentUrls;
     user.agentProfile.agencyLogo = dto.documentUrls[0] ?? '';

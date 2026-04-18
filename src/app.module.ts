@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { AgentModule } from './modules/agent/agent.module';
@@ -12,11 +13,17 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { EncryptionModule } from './core/encryption/encryption.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { createThrottlerConfig } from './common/throttler/throttler.config';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => createThrottlerConfig(config),
+    }),
     MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/aidport', {
       maxPoolSize: 10,
       minPoolSize: 5,
@@ -33,10 +40,8 @@ import { HealthController } from './health.controller';
   ],
   controllers: [HealthController],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}

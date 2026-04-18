@@ -67,8 +67,8 @@ export class AgentController {
   @ApiOperation({
     summary: 'Set company document URLs',
     description:
-      'Option A: POST /upload/single or /upload/multiple with query `attachTo=agent` — URLs are appended to this list automatically (deduped). ' +
-      'Option B: Upload first, then send the returned `url` values here. Replaces the full list; use [] to clear. ' +
+      'POST /upload as an agent persists URLs to this list automatically (or use `attachTo=none` on upload to skip). ' +
+      'Or send URLs here. Replaces the full list; use [] to clear. ' +
       'Either way, documents appear on GET /agent/me and in the public agent directory.',
   })
   updateDocuments(

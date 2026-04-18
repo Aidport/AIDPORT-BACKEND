@@ -17,6 +17,9 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
+    app.set('trust proxy', 1);
+  }
   /** Static pages (e.g. forgot-password.html) from project `public/`. */
   app.useStaticAssets(join(process.cwd(), 'public'), { index: false });
   app.use(cookieParser());

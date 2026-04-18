@@ -84,6 +84,24 @@ function parseUrlArrayField(raw: unknown, field: string): string[] {
   return out;
 }
 
+export type JwtUserPayload = { id: string; role: string; email?: string };
+
+function isAgentRole(role: string | undefined): boolean {
+  return String(role ?? '').toLowerCase() === 'agent';
+}
+
+/** Agents: always persist upload URLs to MongoDB unless the client opts out (`attachTo=none`). */
+function shouldSaveUrlsToAgentProfile(
+  attachTo: string | undefined,
+  userRole: string | undefined,
+): boolean {
+  const v = attachTo?.trim().toLowerCase();
+  if (v === 'none' || v === 'off' || v === 'false' || v === '0') {
+    return false;
+  }
+  return isAgentRole(userRole);
+}
+
 @ApiTags('Upload')
 @ApiBearerAuth(SWAGGER_BEARER)
 @Controller('upload')
@@ -134,13 +152,12 @@ export class UploadController {
       'Multipart: `files` (0–10 new files). Form fields `existingUrls` and `removeUrls` are JSON string arrays of Cloudinary URLs. ' +
       'Removals are deleted from Cloudinary first, then new files are merged after `existingUrls`. ' +
       '`existingUrls` must not overlap `removeUrls`. ' +
-      'Query `attachTo=agent` (agents only) appends new file URLs to `agentProfile.documentUrls` so they appear on GET /agent/me.',
+      'Agents: new file URLs are always saved to `agentProfile.documentUrls` (same as POST /upload/single). `attachTo=none` = Cloudinary only, skip DB.',
   })
   @ApiQuery({
     name: 'attachTo',
     required: false,
-    description: 'Set to `agent` to append newly uploaded file URLs to the agent profile (same as POST /upload/single).',
-    enum: ['agent'],
+    description: 'Agents default to saving in MongoDB. Set `none` to skip.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -170,11 +187,11 @@ export class UploadController {
     }),
   )
   async patchGallery(
+    @CurrentUser() user: JwtUserPayload,
     @UploadedFiles(new FileValidationPipe()) files: Express.Multer.File[] | undefined,
     @Body('existingUrls') existingUrlsRaw?: string,
     @Body('removeUrls') removeUrlsRaw?: string,
     @Query('attachTo') attachTo?: string,
-    @CurrentUser('id') userId?: string,
   ) {
     const existingUrls = parseUrlArrayField(existingUrlsRaw, 'existingUrls');
     const removeUrls = parseUrlArrayField(removeUrlsRaw, 'removeUrls');
@@ -201,8 +218,12 @@ export class UploadController {
       removalFailed: removalResult.failed.length ? removalResult.failed : undefined,
     };
 
-    if (attachTo === 'agent' && newUrls.length > 0 && userId) {
-      const userResp = await this.userService.appendAgentDocumentUrls(userId, newUrls);
+    if (
+      shouldSaveUrlsToAgentProfile(attachTo, user?.role) &&
+      newUrls.length > 0 &&
+      user?.id
+    ) {
+      const userResp = await this.userService.appendAgentDocumentUrls(user.id, newUrls);
       return {
         ...base,
         savedToAgentProfile: true,
@@ -217,14 +238,12 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload a single file to Cloudinary',
     description:
-      'Multipart field name: `file`. Max 10MB. Images, video, PDF, and Word docs via Multer + CloudinaryStorage. ' +
-      'Query `attachTo=agent` (agents only) appends the returned URL to `agentProfile.documentUrls` so GET /agent/me includes it.',
+      'Multipart field name: `file`. Max 10MB. **Agents:** the HTTPS URL is always written to `agentProfile.documentUrls` (and syncs legacy `agencyProfile`) so it persists like any normal app. Non-agents get the URL in the JSON only. Use `attachTo=none` only if you must skip saving.',
   })
   @ApiQuery({
     name: 'attachTo',
     required: false,
-    description: 'Set to `agent` to save the uploaded file URL on the authenticated agent profile.',
-    enum: ['agent'],
+    description: 'Agents: omit = save to DB. `none` = return URL only.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -243,16 +262,21 @@ export class UploadController {
     }),
   )
   async uploadSingle(
+    @CurrentUser() user: JwtUserPayload,
     @UploadedFile(new FileValidationPipe()) file: Express.Multer.File | undefined,
     @Query('attachTo') attachTo?: string,
-    @CurrentUser('id') userId?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
     const mapped = mapUploaded(file as Express.Multer.File & { path?: string; filename?: string });
-    if (attachTo === 'agent' && userId && mapped.url) {
-      const userResp = await this.userService.appendAgentDocumentUrls(userId, [mapped.url]);
+    if (!mapped.url?.trim()) {
+      throw new BadRequestException(
+        'Upload did not return a Cloudinary URL. Check CLOUDINARY_CLOUD_NAME / API keys and that the file was accepted.',
+      );
+    }
+    if (shouldSaveUrlsToAgentProfile(attachTo, user?.role) && user?.id) {
+      const userResp = await this.userService.appendAgentDocumentUrls(user.id, [mapped.url]);
       return {
         ...mapped,
         savedToAgentProfile: true,
@@ -266,14 +290,12 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload up to 10 files to Cloudinary',
     description:
-      'Multipart field name: `files` (array). Max 10MB per file. Same types as single upload. ' +
-      'Query `attachTo=agent` appends all returned URLs to the agent profile.',
+      '**Agents:** all returned URLs are appended to `agentProfile.documentUrls` in MongoDB. `attachTo=none` skips DB.',
   })
   @ApiQuery({
     name: 'attachTo',
     required: false,
-    description: 'Set to `agent` to save all uploaded file URLs on the authenticated agent profile.',
-    enum: ['agent'],
+    description: 'Agents: omit = save to DB. `none` = URLs in response only.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -296,9 +318,9 @@ export class UploadController {
     }),
   )
   async uploadMultiple(
+    @CurrentUser() user: JwtUserPayload,
     @UploadedFiles(new FileValidationPipe()) files: Express.Multer.File[] | undefined,
     @Query('attachTo') attachTo?: string,
-    @CurrentUser('id') userId?: string,
   ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
@@ -306,10 +328,17 @@ export class UploadController {
     const mapped = files.map((file) =>
       mapUploaded(file as Express.Multer.File & { path?: string; filename?: string }),
     );
-    if (attachTo === 'agent' && userId) {
+    for (const m of mapped) {
+      if (!m.url?.trim()) {
+        throw new BadRequestException(
+          'One or more uploads did not return a Cloudinary URL. Check CLOUDINARY configuration.',
+        );
+      }
+    }
+    if (shouldSaveUrlsToAgentProfile(attachTo, user?.role) && user?.id) {
       const urls = mapped.map((m) => m.url).filter(Boolean) as string[];
       if (urls.length > 0) {
-        const userResp = await this.userService.appendAgentDocumentUrls(userId, urls);
+        const userResp = await this.userService.appendAgentDocumentUrls(user.id, urls);
         return {
           files: mapped,
           savedToAgentProfile: true,
