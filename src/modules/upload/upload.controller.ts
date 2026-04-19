@@ -24,6 +24,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
@@ -54,8 +55,10 @@ function mapUploaded(
   return {
     filename: file.filename,
     originalName: file.originalname,
+    /** Public HTTPS delivery URL — open in a new tab, `<a href>`, `<img src>` — no login. */
     url,
     path: url,
+    publicUrl: url,
   };
 }
 
@@ -116,12 +119,13 @@ export class UploadController {
   ) {}
 
   @Public()
+  @SkipThrottle()
   @Get('resource')
   @ApiOperation({
     summary: 'Get Cloudinary resource metadata (read)',
     description:
-      'No JWT required. Returns Cloudinary API resource details for a delivery URL in this account. ' +
-      'To **view** a file in the browser, prefer opening the stored `https://res.cloudinary.com/...` URL directly, or use GET /upload/open.',
+      'Public, no JWT. Returns Cloudinary API resource details for a delivery URL in this account. ' +
+      'To **view** a file like a normal website: open the stored `https://res.cloudinary.com/...` URL in a new tab or use it as `href` / `src` — no API call needed.',
   })
   async getResource(@Query() query: GetUploadResourceQueryDto) {
     return this.uploadService.getResourceByUrl(query.url);
@@ -132,11 +136,12 @@ export class UploadController {
    * Prefer linking to `res.cloudinary.com` directly to avoid an extra hop.
    */
   @Public()
+  @SkipThrottle()
   @Get('open')
   @ApiOperation({
     summary: 'Redirect to file on Cloudinary (public)',
     description:
-      'Query `url` = full HTTPS delivery URL for this CLOUDINARY_CLOUD_NAME. Returns 302. No auth.',
+      'Public, no JWT. Query `url` = full HTTPS delivery URL for this CLOUDINARY_CLOUD_NAME. Returns 302 to the CDN.',
   })
   openDeliveryUrl(
     @Query() query: GetUploadResourceQueryDto,
@@ -144,6 +149,25 @@ export class UploadController {
   ) {
     this.uploadService.assertDeliveryUrlInAccount(query.url);
     res.redirect(302, query.url);
+  }
+
+  /**
+   * Same-origin proxy for Cloudinary bytes — use for `<iframe>` / `<embed>` when direct Cloudinary
+   * links show "Unsafe attempt to load URL" or similar. Query `url` = full HTTPS delivery URL.
+   */
+  @Public()
+  @SkipThrottle()
+  @Get('stream')
+  @ApiOperation({
+    summary: 'Stream file for viewing (public proxy)',
+    description:
+      'Public, no JWT. Same-origin proxy for iframe/embed edge cases. Normal use: open the `url` / `publicUrl` from the upload response directly (public Cloudinary link).',
+  })
+  async streamDeliveryUrl(
+    @Query() query: GetUploadResourceQueryDto,
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    await this.uploadService.streamDeliveryInline(query.url, res);
   }
 
   @Delete()
@@ -263,7 +287,7 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload a single file to Cloudinary',
     description:
-      'Multipart field name: `file`. Max 10MB. **Agents:** the HTTPS URL is always written to `agentProfile.documentUrls` (and syncs legacy `agencyProfile`) so it persists like any normal app. Non-agents get the URL in the JSON only. Use `attachTo=none` only if you must skip saving.',
+      'Multipart field name: `file`. Max 10MB. Response `url` / `publicUrl` are **public** Cloudinary HTTPS links — use them like any normal file host (`target="_blank"`, `<img src>`, PDF links); no auth to view. **Agents:** also saved to `agentProfile.documentUrls` unless `attachTo=none`.',
   })
   @ApiQuery({
     name: 'attachTo',
@@ -315,7 +339,7 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload up to 10 files to Cloudinary',
     description:
-      '**Agents:** all returned URLs are appended to `agentProfile.documentUrls` in MongoDB. `attachTo=none` skips DB.',
+      'Each item includes `url` / `publicUrl` — **public** HTTPS links (same as any normal file CDN). **Agents:** URLs appended to `agentProfile.documentUrls` unless `attachTo=none`.',
   })
   @ApiQuery({
     name: 'attachTo',

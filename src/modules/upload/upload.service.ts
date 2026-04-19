@@ -4,11 +4,25 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { Response } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import {
   assertUrlMatchesConfiguredCloud,
   parseCloudinaryUrl,
 } from './cloudinary-url.util';
+
+function fileNameFromDeliveryUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const seg = u.pathname.split('/').filter(Boolean).pop() || 'file';
+    const decoded = decodeURIComponent(seg).replace(/["\r\n]/g, '');
+    return decoded || 'file';
+  } catch {
+    return 'file';
+  }
+}
 
 @Injectable()
 export class UploadService {
@@ -55,6 +69,37 @@ export class UploadService {
   /** Same account check as metadata fetch — for public redirect endpoint. */
   assertDeliveryUrlInAccount(url: string): void {
     this.parseAndAuthorize(url);
+  }
+
+  /**
+   * Proxy the file through this API with headers suitable for iframe/embed and new-tab viewing.
+   * Cross-origin `res.cloudinary.com` URLs often fail inside iframes on SPAs; pointing `iframe src`
+   * at `GET /upload/stream?url=...` (same API host) avoids that class of browser errors.
+   */
+  async streamDeliveryInline(url: string, res: Response): Promise<void> {
+    this.assertDeliveryUrlInAccount(url);
+    const upstream = await fetch(url, { redirect: 'follow' });
+    if (!upstream.ok) {
+      throw new BadRequestException(`Could not fetch file (${upstream.status})`);
+    }
+    const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', ct);
+    const safeName = fileNameFromDeliveryUrl(url);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+    const body = upstream.body;
+    if (!body) {
+      throw new BadRequestException('Empty body');
+    }
+    try {
+      await pipeline(Readable.fromWeb(body as import('stream/web').ReadableStream), res);
+    } catch (err) {
+      if (!res.headersSent) {
+        throw err;
+      }
+    }
   }
 
   /** Cloudinary API resource metadata (read). */

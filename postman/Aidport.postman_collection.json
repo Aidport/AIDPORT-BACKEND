@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`). `PATCH /agent/plan` updates `pricingPlan` only (`basic` | `premium`). Public GET /agents and GET /agents/:id (includes `documentUrls`). Rates: local, international (countries optional), contra (price-only) + standalone `PATCH /agent/profile/contra-price`. Shipments: Admin PATCH mark-paid body `{ \"amountPaid\"?: number }` sets `amountPaid`/`paidAt`. Admin: send-invoice, assign. Agent: shipment rates may include `type: contra`. Upload CRUD. See collection variables.",
+    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`). `PATCH /agent/plan` updates `pricingPlan` only (`basic` | `premium`). Public GET /agents and GET /agents/:id (includes `documentUrls`). Rates: local, international (countries optional), contra (price-only) + standalone `PATCH /agent/profile/contra-price`. Shipments: Admin PATCH mark-paid body `{ \"amountPaid\"?: number }` sets `amountPaid`/`paidAt`. Admin: send-invoice, assign. Agent: shipment rates may include `type: contra`. Upload: public `GET /upload/stream?url=` proxies Cloudinary files for iframe/view when direct links fail. Upload CRUD. See collection variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -798,6 +798,11 @@
           "name": "Get resource (Cloudinary metadata)",
           "description": "Read — GET metadata for a delivery URL in your Cloudinary account.",
           "request": { "method": "GET", "url": "{{baseUrl}}/upload/resource?url={{uploadUrl}}" }
+        },
+        {
+          "name": "Stream file (view / iframe proxy)",
+          "description": "Public GET — proxies file bytes with Content-Disposition: inline. Query url must be URL-encoded (use {{uploadUrl}}). Prefer this for iframe/embed when direct res.cloudinary.com fails with cross-origin/frame errors.",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/upload/stream?url={{uploadUrl}}" }
         },
         {
           "name": "Delete one (Cloudinary)",
