@@ -9,6 +9,7 @@ import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { configureCloudinary } from './integrations/cloudinary/cloudinary.config';
+import { corsOriginDelegate } from './common/cors/cors.config';
 import { setupSwagger } from './common/swagger/swagger.setup';
 
 async function bootstrap() {
@@ -25,9 +26,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe());
   app.enableCors({
-    origin: process.env.FRONTEND_URL?.includes(',')
-      ? process.env.FRONTEND_URL.split(',').map((s) => s.trim())
-      : process.env.FRONTEND_URL || true,
+    origin: corsOriginDelegate,
     credentials: true,
   });
 
