@@ -524,7 +524,7 @@
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"documentUrls\": [\n    \"https://res.cloudinary.com/your-cloud/raw/upload/v1/sample.pdf\"\n  ]\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"documentUrls\": [\n    \"https://res.cloudinary.com/your-cloud/image/upload/v1/sample.pdf\"\n  ]\n}" },
             "url": "{{baseUrl}}/agent/documents"
           }
         },
