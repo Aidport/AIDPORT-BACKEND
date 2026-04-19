@@ -287,7 +287,7 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload a single file to Cloudinary',
     description:
-      'Multipart field name: `file`. Max 10MB. Response `url` / `publicUrl` are **public** Cloudinary HTTPS links — use them like any normal file host (`target="_blank"`, `<img src>`, PDF links); no auth to view. **Agents:** also saved to `agentProfile.documentUrls` unless `attachTo=none`.',
+      'Multipart field name: `file`. Max 10MB. Response `url` / `publicUrl` are **public** Cloudinary HTTPS links — use them like any normal file host (`target="_blank"`, `<img src>`, PDF links); no auth to view. PDFs are stored under `image/upload` like Cloudinary recommends; on the **Free** plan you must allow PDF delivery in the Cloudinary console (Settings → Security). **Agents:** also saved to `agentProfile.documentUrls` unless `attachTo=none`.',
   })
   @ApiQuery({
     name: 'attachTo',

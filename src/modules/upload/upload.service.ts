@@ -82,7 +82,11 @@ export class UploadService {
     if (!upstream.ok) {
       throw new BadRequestException(`Could not fetch file (${upstream.status})`);
     }
-    const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+    let ct = upstream.headers.get('content-type') || 'application/octet-stream';
+    const pathLower = new URL(url).pathname.toLowerCase();
+    if (pathLower.endsWith('.pdf') && !ct.toLowerCase().includes('pdf')) {
+      ct = 'application/pdf';
+    }
     res.setHeader('Content-Type', ct);
     const safeName = fileNameFromDeliveryUrl(url);
     res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
