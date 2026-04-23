@@ -51,12 +51,21 @@ export class CompleteAgentProfileDto {
   @ApiProperty({
     enum: TransportMode,
     isArray: true,
-    example: [TransportMode.Sea, TransportMode.Land],
+    example: [TransportMode.SeaCargo, TransportMode.AirCargo],
   })
   @IsArray()
   @ArrayMinSize(1)
   @IsEnum(TransportMode, { each: true })
   transportModes: TransportMode[];
+
+  @ApiPropertyOptional({
+    example: '0123456789',
+    description: 'Business / settlement account number (bank or platform).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  businessAccountNumber?: string;
 
   @ApiPropertyOptional({
     type: [String],

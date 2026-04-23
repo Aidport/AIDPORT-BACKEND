@@ -31,6 +31,7 @@ import { UpdateShipmentDto } from '../shipment/dto/update-shipment.dto';
 import { SendInvoiceDto } from '../shipment/dto/send-invoice.dto';
 import { AssignShipmentDto } from '../shipment/dto/assign-shipment.dto';
 import { MarkShipmentPaidDto } from './dto/mark-shipment-paid.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -193,7 +194,11 @@ export class AdminService {
       .lean()
       .exec();
     if (!agent) throw new NotFoundException('Agent not found');
-    return agent;
+    return this.attachUploadedFileUrls(agent as unknown as {
+      _id: Types.ObjectId;
+      role?: string;
+      agentProfile?: { documentUrls?: string[] };
+    });
   }
 
   async updateAgentStatus(id: string, dto: UpdateAgentStatusDto) {
@@ -233,6 +238,8 @@ export class AdminService {
       agent.agentProfile.status = dto.agentStatus;
     if (dto.documentUrls !== undefined)
       agent.agentProfile.documentUrls = dto.documentUrls;
+    if (dto.businessAccountNumber !== undefined)
+      agent.agentProfile.businessAccountNumber = dto.businessAccountNumber;
     await agent.save();
     return this.getAgentById(id);
   }
@@ -282,7 +289,10 @@ export class AdminService {
     const shipmentCount = await this.shipmentModel.countDocuments({
       createdBy: new Types.ObjectId(id),
     });
-    return { ...u, shipmentCount };
+    const withFiles = await this.attachUploadedFileUrls(
+      u as unknown as { _id: Types.ObjectId; role?: string; agentProfile?: { documentUrls?: string[] } },
+    );
+    return { ...withFiles, shipmentCount };
   }
 
   async updateShipper(id: string, dto: UpdateProfileDto) {
@@ -310,7 +320,52 @@ export class AdminService {
       .lean()
       .exec();
     if (!u) throw new NotFoundException('User not found');
-    return u;
+    return this.attachUploadedFileUrls(
+      u as unknown as { _id: Types.ObjectId; role?: string; agentProfile?: { documentUrls?: string[] } },
+    );
+  }
+
+  /**
+   * Agents: `agentProfile.documentUrls`. Shippers: distinct `imageUrls` from their shipments.
+   * List endpoint only fills agent docs; use `GET .../users/:id` for shipper file URLs.
+   */
+  private async attachUploadedFileUrls(u: {
+    _id: Types.ObjectId;
+    role?: string;
+    agentProfile?: { documentUrls?: string[] };
+  }) {
+    if (u.role === Role.Agent) {
+      const docs = u.agentProfile?.documentUrls;
+      return {
+        ...u,
+        uploadedFileUrls: Array.isArray(docs) ? docs : [],
+      };
+    }
+    if (u.role === Role.User) {
+      const rows = await this.shipmentModel
+        .find({ createdBy: u._id })
+        .select('imageUrls')
+        .lean()
+        .exec();
+      const seen = new Set<string>();
+      for (const r of rows) {
+        for (const im of r.imageUrls ?? []) {
+          if (im) seen.add(String(im));
+        }
+      }
+      return { ...u, uploadedFileUrls: [...seen] };
+    }
+    return { ...u, uploadedFileUrls: [] as string[] };
+  }
+
+  async updateUserByAdmin(id: string, dto: UpdateAdminUserDto) {
+    const u = await this.userModel.findById(id).exec();
+    if (!u) throw new NotFoundException('User not found');
+    if (dto.userState !== undefined) {
+      u.userState = dto.userState;
+    }
+    await u.save();
+    return this.getUserById(id);
   }
 
   async listUsers(query: AdminListUsersQueryDto) {
@@ -326,7 +381,7 @@ export class AdminService {
       match.$or = [{ name: r }, { email: r }];
     }
 
-    const [items, total] = await Promise.all([
+    const [raw, total] = await Promise.all([
       this.userModel
         .find(match)
         .select(
@@ -339,6 +394,17 @@ export class AdminService {
         .exec(),
       this.userModel.countDocuments(match),
     ]);
+
+    const items = raw.map((row) => {
+      if (row.role === Role.Agent) {
+        const docs = row.agentProfile?.documentUrls;
+        return {
+          ...row,
+          uploadedFileUrls: Array.isArray(docs) ? docs : [],
+        };
+      }
+      return { ...row, uploadedFileUrls: [] as string[] };
+    });
 
     return {
       items,

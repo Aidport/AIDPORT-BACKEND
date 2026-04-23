@@ -23,6 +23,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
+import { UserAccountState } from './entities/user-account-state.enum';
 import {
   AgentRateLineResponse,
   AgentProfileResponse,
@@ -51,6 +52,8 @@ export class UserService {
       email: createUserDto.email.toLowerCase(),
       passwordHash,
       role,
+      userState:
+        role === Role.Agent ? UserAccountState.Pending : UserAccountState.Active,
       isEmailVerified: role === Role.Admin,
       ...(role === Role.Agent
         ? { agentProfile: { status: AgentStatus.PendingReview, rates: [] } }
@@ -121,6 +124,9 @@ export class UserService {
       location: dto.location,
       aboutCompany: dto.aboutCompany,
       transportModes: dto.transportModes,
+      ...(dto.businessAccountNumber !== undefined
+        ? { businessAccountNumber: dto.businessAccountNumber }
+        : {}),
       isVerified: (prevPlain.isVerified as boolean | undefined) ?? false,
       documentUrls: mergedDocumentUrls,
       ...(agencyLogo ? { agencyLogo } : {}),
@@ -840,6 +846,7 @@ export class UserService {
         : [],
       contraPrice: ap.contraPrice,
       category: ap.category,
+      businessAccountNumber: ap.businessAccountNumber,
     };
   }
 
@@ -849,6 +856,7 @@ export class UserService {
       name: user.name,
       email: user.email,
       role: user.role,
+      userState: user.userState ?? UserAccountState.Active,
       isEmailVerified: user.isEmailVerified,
       phone: user.phone,
       address: user.address,

@@ -18,6 +18,7 @@ import { RequestVerificationCodeDto } from './dto/request-verification-code.dto'
 import { EncryptionService } from '../../core/encryption/encryption.service';
 import { Role } from '../../common/decorators/roles.decorator';
 import { UserResponse } from '../user/types/user-response.types';
+import { UserAccountState } from '../user/entities/user-account-state.enum';
 import { EmailService } from '../../integrations/email/email.service';
 
 /** Optional request metadata for login notification emails. */
@@ -88,9 +89,21 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    const accountState = user.userState ?? UserAccountState.Active;
+    if (accountState === UserAccountState.Blocked) {
+      throw new UnauthorizedException('This account has been blocked.');
+    }
+    if (accountState === UserAccountState.Suspended) {
+      throw new UnauthorizedException('This account is suspended.');
+    }
     if (!user.isEmailVerified && user.role !== Role.Admin) {
       throw new UnauthorizedException(
         'Please verify your email with the OTP sent to your inbox.',
+      );
+    }
+    if (accountState === UserAccountState.Pending) {
+      throw new UnauthorizedException(
+        'Your account is pending approval. You will be notified when it is active.',
       );
     }
     const userResponse = this.userService.toUserResponse(user);

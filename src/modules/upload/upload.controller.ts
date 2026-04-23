@@ -24,6 +24,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -31,7 +32,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FileValidationPipe } from '../../common/pipes/file-validation.pipe';
 import { SWAGGER_BEARER } from '../../common/swagger/swagger.setup';
-import { cloudinaryMulterStorage, uploadLimits } from './upload.storage';
+import { uploadLimits } from './upload.storage';
 import { UploadService } from './upload.service';
 import { UserService } from '../user/user.service';
 import {
@@ -40,21 +41,14 @@ import {
   GetUploadResourceQueryDto,
 } from './dto/upload-mutation.dto';
 
-function mapUploaded(
-  file: Express.Multer.File & {
-    path?: string;
-    filename?: string;
-    secure_url?: string;
-  },
+function mapCloudinaryUpload(
+  result: { secure_url: string; public_id: string },
+  originalClientName: string,
 ) {
-  const url =
-    file.path ||
-    file.secure_url ||
-    (file as { secureUrl?: string }).secureUrl ||
-    '';
+  const url = result.secure_url;
   return {
-    filename: file.filename,
-    originalName: file.originalname,
+    filename: result.public_id,
+    originalName: originalClientName,
     /** Public HTTPS delivery URL — open in a new tab, `<a href>`, `<img src>` — no login. */
     url,
     path: url,
@@ -231,7 +225,7 @@ export class UploadController {
   })
   @UseInterceptors(
     FilesInterceptor('files', 10, {
-      storage: cloudinaryMulterStorage,
+      storage: memoryStorage(),
       limits: uploadLimits,
     }),
   )
@@ -255,9 +249,18 @@ export class UploadController {
 
     const removalResult = await this.uploadService.deleteByUrls(removeUrls);
     const fileList = files ?? [];
-    const added = fileList.map((f) =>
-      mapUploaded(f as Express.Multer.File & { path?: string; filename?: string }),
-    );
+    let added;
+    try {
+      added = await Promise.all(
+        fileList.map(async (f) => {
+          const result = await this.uploadService.uploadFromMulterFile(f);
+          return mapCloudinaryUpload(result, f.originalname);
+        }),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      throw new BadRequestException(msg);
+    }
     const newUrls = added.map((a) => a.url).filter(Boolean) as string[];
 
     const base = {
@@ -306,7 +309,7 @@ export class UploadController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: cloudinaryMulterStorage,
+      storage: memoryStorage(),
       limits: uploadLimits,
     }),
   )
@@ -318,7 +321,14 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    const mapped = mapUploaded(file as Express.Multer.File & { path?: string; filename?: string });
+    let mapped;
+    try {
+      const result = await this.uploadService.uploadFromMulterFile(file);
+      mapped = mapCloudinaryUpload(result, file.originalname);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      throw new BadRequestException(msg);
+    }
     if (!mapped.url?.trim()) {
       throw new BadRequestException(
         'Upload did not return a Cloudinary URL. Check CLOUDINARY_CLOUD_NAME / API keys and that the file was accepted.',
@@ -362,7 +372,7 @@ export class UploadController {
   })
   @UseInterceptors(
     FilesInterceptor('files', 10, {
-      storage: cloudinaryMulterStorage,
+      storage: memoryStorage(),
       limits: uploadLimits,
     }),
   )
@@ -374,9 +384,18 @@ export class UploadController {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
-    const mapped = files.map((file) =>
-      mapUploaded(file as Express.Multer.File & { path?: string; filename?: string }),
-    );
+    let mapped;
+    try {
+      mapped = await Promise.all(
+        files.map(async (file) => {
+          const result = await this.uploadService.uploadFromMulterFile(file);
+          return mapCloudinaryUpload(result, file.originalname);
+        }),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      throw new BadRequestException(msg);
+    }
     for (const m of mapped) {
       if (!m.url?.trim()) {
         throw new BadRequestException(

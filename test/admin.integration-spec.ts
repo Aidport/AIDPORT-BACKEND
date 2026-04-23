@@ -147,7 +147,7 @@ describe('Admin & quotes (integration)', () => {
         dateEstablished: '2017-05-20',
         location: 'Abuja, Nigeria',
         aboutCompany: 'Admin integration test agent company profile.',
-        transportModes: ['multimodal', 'sea'],
+        transportModes: ['freight_forwarder', 'sea_cargo'],
       })
       .expect(200);
 

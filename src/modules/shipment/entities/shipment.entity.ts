@@ -196,6 +196,14 @@ export class Shipment {
   @Prop({ type: ShipmentAddressSchema })
   addressTo?: ShipmentAddress;
 
+  /** Explicit sender email (shipper / pickup contact); also mirrored on `addressFrom.email` when present. */
+  @Prop()
+  senderEmail?: string;
+
+  /** Explicit receiver email (delivery contact); also mirrored on `addressTo.email` when present. */
+  @Prop()
+  receiverEmail?: string;
+
   /** Parcel items (TShip-style) */
   @Prop({ type: [ParcelItemSchema], default: [] })
   parcelItems?: ParcelItem[];
@@ -240,6 +248,13 @@ export class Shipment {
 
   @Prop()
   invoiceSentAt?: Date;
+
+  /** Receiver of goods (display on invoice / emails); optional override from admin send-invoice. */
+  @Prop()
+  invoiceReceiverName?: string;
+
+  @Prop()
+  invoiceReceiverEmail?: string;
 
   @Prop()
   deliveredAt?: Date;

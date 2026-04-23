@@ -119,7 +119,7 @@ describe('Agent auth, quotes, rates (integration)', () => {
         dateEstablished: '2019-03-01',
         location: 'Lagos, Nigeria',
         aboutCompany: 'Integration test agent company description.',
-        transportModes: ['sea', 'land'],
+        transportModes: ['sea_cargo', 'air_cargo'],
       })
       .expect(200);
     expect(profileRes.body.isEmailVerified).toBe(true);

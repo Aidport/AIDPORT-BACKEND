@@ -15,6 +15,9 @@ export function buildShipmentInvoiceEmail(params: {
   parcelItems: InvoiceParcelLine[];
   totalPrice: number;
   paymentLink: string;
+  /** Goods receiver (consignee), when known — shown on the invoice. */
+  receiverName?: string;
+  receiverEmail?: string;
 }) {
   const mailgen = getMailgen();
   const {
@@ -25,6 +28,8 @@ export function buildShipmentInvoiceEmail(params: {
     parcelItems,
     totalPrice,
     paymentLink,
+    receiverName,
+    receiverEmail,
   } = params;
 
   const tableData = parcelItems.map((p) => ({
@@ -33,12 +38,21 @@ export function buildShipmentInvoiceEmail(params: {
     amount: String(p.price),
   }));
 
+  const receiverLines: string[] = [];
+  if (receiverName || receiverEmail) {
+    const parts = [receiverName, receiverEmail].filter(Boolean) as string[];
+    if (parts.length) {
+      receiverLines.push(`Receiver (consignee): ${parts.join(' · ')}`);
+    }
+  }
+
   const email = {
     body: {
       name: recipientName,
       intro: [
         `Your shipment invoice for ${cargoName} is ready.`,
         `Route: ${originCity} → ${destinationCity}`,
+        ...receiverLines,
       ],
       table: {
         title: 'Invoice items',
@@ -52,6 +66,8 @@ export function buildShipmentInvoiceEmail(params: {
         },
       },
       dictionary: {
+        ...(receiverName ? { 'Receiver name': receiverName } : {}),
+        ...(receiverEmail ? { 'Receiver email': receiverEmail } : {}),
         'Total (NGN or as quoted)': String(totalPrice),
       },
       action: {

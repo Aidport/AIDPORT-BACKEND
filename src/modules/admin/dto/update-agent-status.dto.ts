@@ -87,6 +87,11 @@ export class AdminUpdateAgentPatchDto {
   @IsArray()
   @IsString({ each: true })
   documentUrls?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  businessAccountNumber?: string;
 }
 
 export class UpdateQuoteStatusDto {

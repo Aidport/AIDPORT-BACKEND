@@ -34,6 +34,7 @@ import {
 import { SendInvoiceDto } from '../shipment/dto/send-invoice.dto';
 import { AssignShipmentDto } from '../shipment/dto/assign-shipment.dto';
 import { MarkShipmentPaidDto } from './dto/mark-shipment-paid.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth(SWAGGER_BEARER)
@@ -51,6 +52,15 @@ export class AdminController {
   @Get('users/:id')
   getUserById(@Param('id') id: string) {
     return this.adminService.getUserById(id);
+  }
+
+  @Patch('users/:id')
+  @ApiOperation({
+    summary: 'Update user (e.g. account state)',
+    description: 'Set `userState` to `active` to approve a pending agent account.',
+  })
+  updateUserByAdmin(@Param('id') id: string, @Body() dto: UpdateAdminUserDto) {
+    return this.adminService.updateUserByAdmin(id, dto);
   }
 
   @Post('users')

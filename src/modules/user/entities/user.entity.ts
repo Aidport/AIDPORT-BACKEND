@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Role } from '../../../common/decorators/roles.decorator';
 import { AgentProfile, AgentProfileSchema } from './agent-profile.schema';
+import { UserAccountState } from './user-account-state.enum';
 
 export type UserDocument = User & Document;
 
@@ -38,6 +39,9 @@ export class User {
 
   @Prop({ type: String, enum: Object.values(Role), default: Role.User })
   role: Role;
+
+  @Prop({ enum: Object.values(UserAccountState), default: UserAccountState.Active })
+  userState: UserAccountState;
 
   @Prop()
   phone?: string;

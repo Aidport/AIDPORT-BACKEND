@@ -1,4 +1,5 @@
 import { Role } from '../../../common/decorators/roles.decorator';
+import { UserAccountState } from '../entities/user-account-state.enum';
 import {
   AgentPricingPlan,
   AgentStatus,
@@ -36,6 +37,7 @@ export interface AgentProfileResponse {
   /** Standalone contra amount (optional; separate from rate lines). */
   contraPrice?: number;
   category?: string;
+  businessAccountNumber?: string;
 }
 
 export interface UserSettingsResponse {
@@ -51,6 +53,7 @@ export interface UserResponse {
   name: string;
   email: string;
   role: Role;
+  userState: UserAccountState;
   isEmailVerified?: boolean;
   phone?: string;
   address?: string;

@@ -62,19 +62,20 @@ export class ShipmentService {
   }
 
   async create(createShipmentDto: CreateShipmentDto, userId: string) {
+    const merged = this.applyContactEmailsToPayload(createShipmentDto);
     const shipment = new this.shipmentModel({
-      ...createShipmentDto,
-      imageUrls: createShipmentDto.imageUrls ?? [],
-      parcelItems: createShipmentDto.parcelItems ?? [],
-      preferredPickupDate: createShipmentDto.preferredPickupDate
-        ? new Date(createShipmentDto.preferredPickupDate)
+      ...merged,
+      imageUrls: merged.imageUrls ?? [],
+      parcelItems: merged.parcelItems ?? [],
+      preferredPickupDate: merged.preferredPickupDate
+        ? new Date(merged.preferredPickupDate)
         : undefined,
       createdBy: new Types.ObjectId(userId),
       events: [
         {
           status: 'created',
           description: 'Shipment created',
-          location: `${createShipmentDto.originCity} → ${createShipmentDto.destinationCity}`,
+          location: `${merged.originCity} → ${merged.destinationCity}`,
           createdAt: new Date(),
         },
       ],
@@ -187,9 +188,10 @@ export class ShipmentService {
     const [items, total] = await Promise.all([
       this.shipmentModel
         .find(query)
-        .populate('createdBy', 'name email city country')
-        .populate('acceptedBy', 'name email agentProfile')
-        .populate('assignedAgentId', 'name email agentProfile')
+        .populate('createdBy', 'name email city country phone')
+        .populate('requestedAgentId', 'name email phone agentProfile')
+        .populate('acceptedBy', 'name email phone agentProfile')
+        .populate('assignedAgentId', 'name email phone agentProfile')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -285,7 +287,8 @@ export class ShipmentService {
     if (!agent || agent.role !== Role.Agent) {
       throw new BadRequestException('agentId must be a valid agent user');
     }
-    const { agentId, ...fields } = dto;
+    const { agentId, ...rest } = dto;
+    const fields = this.applyContactEmailsToPayload(rest);
     const shipment = new this.shipmentModel({
       ...fields,
       imageUrls: fields.imageUrls ?? [],
@@ -574,6 +577,21 @@ export class ShipmentService {
     shipment.invoiceTotalPrice = dto.totalPrice;
     shipment.paymentLink = dto.paymentLink;
     shipment.invoiceSentAt = new Date();
+    const receiverName =
+      dto.receiverName?.trim() ||
+      shipment.addressTo?.name ||
+      shipment.invoiceReceiverName;
+    const receiverEmailAddr =
+      dto.receiverEmail?.trim() ||
+      shipment.receiverEmail ||
+      shipment.addressTo?.email ||
+      shipment.invoiceReceiverEmail;
+    if (receiverName) {
+      shipment.invoiceReceiverName = receiverName;
+    }
+    if (receiverEmailAddr) {
+      shipment.invoiceReceiverEmail = receiverEmailAddr;
+    }
     await shipment.save();
 
     if (!this.emailService.isConfigured()) {
@@ -592,6 +610,8 @@ export class ShipmentService {
         parcelItems: dto.parcelItems,
         totalPrice: dto.totalPrice,
         paymentLink: dto.paymentLink,
+        receiverName: shipment.invoiceReceiverName,
+        receiverEmail: shipment.invoiceReceiverEmail,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -714,5 +734,21 @@ export class ShipmentService {
     }
 
     return saved;
+  }
+
+  /** Merge `senderEmail` / `receiverEmail` into `addressFrom` / `addressTo` and persist on shipment. */
+  private applyContactEmailsToPayload(dto: CreateShipmentDto) {
+    const { senderEmail, receiverEmail, addressFrom, addressTo, ...rest } = dto;
+    return {
+      ...rest,
+      addressFrom: addressFrom
+        ? { ...addressFrom, email: addressFrom.email ?? senderEmail }
+        : undefined,
+      addressTo: addressTo
+        ? { ...addressTo, email: addressTo.email ?? receiverEmail }
+        : undefined,
+      senderEmail,
+      receiverEmail,
+    };
   }
 }

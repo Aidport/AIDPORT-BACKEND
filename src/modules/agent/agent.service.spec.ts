@@ -65,7 +65,7 @@ describe('AgentService', () => {
       dateEstablished: '2020-01-01',
       location: 'Lagos',
       aboutCompany: 'About us here ok.',
-      transportModes: [TransportMode.Sea],
+      transportModes: [TransportMode.SeaCargo],
     };
     await service.completeProfile('a1', dto);
     expect(userService.completeAgentProfile).toHaveBeenCalledWith('a1', dto);

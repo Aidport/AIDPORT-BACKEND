@@ -45,10 +45,10 @@ export enum AgentPricingPlan {
 }
 
 export enum TransportMode {
-  Air = 'air',
-  Multimodal = 'multimodal',
-  Land = 'land',
-  Sea = 'sea',
+  SeaCargo = 'sea_cargo',
+  AirCargo = 'air_cargo',
+  FreightForwarder = 'freight_forwarder',
+  ClearingAndForwarding = 'clearing_and_forwarding',
 }
 
 @Schema({ _id: false })
@@ -67,6 +67,10 @@ export class AgentProfile {
 
   @Prop()
   aboutCompany?: string;
+
+  /** Business / settlement account number (bank or platform-specific). */
+  @Prop()
+  businessAccountNumber?: string;
 
   @Prop({ type: [String], enum: Object.values(TransportMode), default: [] })
   transportModes?: TransportMode[];

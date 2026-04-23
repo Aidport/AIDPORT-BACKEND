@@ -245,6 +245,8 @@ export class EmailService {
     parcelItems: InvoiceParcelLine[];
     totalPrice: number;
     paymentLink: string;
+    receiverName?: string;
+    receiverEmail?: string;
   }): Promise<void> {
     const { subject, html, text } = buildShipmentInvoiceEmail({
       recipientName: params.recipientName,
@@ -254,6 +256,8 @@ export class EmailService {
       parcelItems: params.parcelItems,
       totalPrice: params.totalPrice,
       paymentLink: params.paymentLink,
+      receiverName: params.receiverName,
+      receiverEmail: params.receiverEmail,
     });
     await this.sendMail({ to: params.to, subject, html, text });
   }

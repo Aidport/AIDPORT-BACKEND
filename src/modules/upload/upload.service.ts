@@ -12,6 +12,8 @@ import {
   assertUrlMatchesConfiguredCloud,
   parseCloudinaryUrl,
 } from './cloudinary-url.util';
+import { maybeCompressRasterForUpload } from './image-compression.util';
+import { buildCloudinaryUploadParams } from './upload.storage';
 
 function fileNameFromDeliveryUrl(url: string): string {
   try {
@@ -28,6 +30,48 @@ function fileNameFromDeliveryUrl(url: string): string {
 export class UploadService {
   private get expectedCloudName(): string | undefined {
     return process.env.CLOUDINARY_CLOUD_NAME;
+  }
+
+  /**
+   * Large JPEG/PNG/WebP are re-encoded to WebP and resized (see `image-compression.util.ts`).
+   * PDF, video, GIF, SVG, and small images pass through unchanged.
+   */
+  async uploadFromMulterFile(file: Express.Multer.File): Promise<{
+    secure_url: string;
+    public_id: string;
+    bytes: number;
+  }> {
+    if (!Buffer.isBuffer(file.buffer)) {
+      throw new BadRequestException(
+        'Missing file buffer — server must use memory storage for uploads.',
+      );
+    }
+    const { buffer, effectiveName } = await maybeCompressRasterForUpload(
+      file.buffer,
+      file.originalname,
+    );
+    const params = buildCloudinaryUploadParams(effectiveName);
+    return await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        params as Record<string, unknown>,
+        (err, result) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          if (!result?.secure_url) {
+            reject(new BadRequestException('Cloudinary returned no delivery URL'));
+            return;
+          }
+          resolve({
+            secure_url: result.secure_url,
+            public_id: result.public_id,
+            bytes: result.bytes ?? buffer.length,
+          });
+        },
+      );
+      Readable.from(buffer).pipe(stream);
+    });
   }
 
   /** Delete one asset by delivery URL. */

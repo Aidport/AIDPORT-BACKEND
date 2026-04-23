@@ -3,6 +3,7 @@ import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsEmail,
   IsNumber,
   IsOptional,
   IsString,
@@ -94,4 +95,23 @@ export class SendInvoiceDto {
   @IsString()
   @MinLength(8)
   paymentLink: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Receiver of goods (shown on invoice). Defaults to delivery address name if omitted.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  receiverName?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Receiver email on the invoice. Defaults to `receiverEmail` / delivery `addressTo.email` if omitted.',
+  })
+  @IsOptional()
+  @IsEmail()
+  receiverEmail?: string;
 }

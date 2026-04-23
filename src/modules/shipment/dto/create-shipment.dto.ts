@@ -8,6 +8,7 @@ import {
   IsArray,
   ValidateNested,
   MinLength,
+  IsEmail,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PickupMethod, ShipmentCategory } from '../entities/shipment.entity';
@@ -119,6 +120,16 @@ export class CreateShipmentDto {
   @ValidateNested()
   @Type(() => AddressDto)
   addressTo?: AddressDto;
+
+  /** Sender / pickup contact email (mirrors `addressFrom.email` when that is omitted). */
+  @IsOptional()
+  @IsEmail()
+  senderEmail?: string;
+
+  /** Receiver / delivery contact email (mirrors `addressTo.email` when that is omitted). */
+  @IsOptional()
+  @IsEmail()
+  receiverEmail?: string;
 
   /** Parcel items (TShip-style) */
   @IsOptional()
