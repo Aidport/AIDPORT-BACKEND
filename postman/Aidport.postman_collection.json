@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`). `PATCH /agent/plan` updates `pricingPlan` only (`basic` | `premium`). Public GET /agents and GET /agents/:id (includes `documentUrls`). Rates: local, international (countries optional), contra (price-only) + standalone `PATCH /agent/profile/contra-price`. Shipments: Admin PATCH mark-paid body `{ \"amountPaid\"?: number }` sets `amountPaid`/`paidAt`. Admin: send-invoice, assign. Agent: shipment rates may include `type: contra`. Upload: public `GET /upload/stream?url=` proxies Cloudinary files for iframe/view when direct links fail. Upload CRUD. See collection variables.",
+    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. **User state** `userState`: `active` | `blocked` | `suspended` | `pending` — new agents start `pending`; admin `PATCH /admin/users/:id` with `{ \"userState\": \"active\" }` to approve. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`, `businessAccountNumber`). `transportModes`: `sea_cargo` | `air_cargo` | `freight_forwarder` | `clearing_and_forwarding`. `PATCH /agent/plan` updates `pricingPlan` only (`basic` | `premium`). Public GET /agents. Shipments: optional `senderEmail` / `receiverEmail` on create & request. Admin: `POST .../send-invoice` may include `receiverName` / `receiverEmail`. Admin list users/agents: `uploadedFileUrls` on response. Admin list shipments: populated `requestedAgentId`, `assignedAgentId`, `acceptedBy` with `agentProfile`. Upload: public `GET /upload/stream?url=`. See collection variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -59,7 +59,7 @@
             "auth": { "type": "noauth" },
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/agents?page=1&limit=10&search=&transportMode="
+            "url": "{{baseUrl}}/agents?page=1&limit=10&search=&transportMode=sea_cargo"
           },
           "response": [{
             "name": "200 OK",
@@ -67,7 +67,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea\", \"land\"],\n        \"isVerified\": false,\n        \"status\": \"approved\",\n        \"documentUrls\": [\"https://res.cloudinary.com/xxx/doc.pdf\"],\n        \"contraPrice\": 25000\n      },\n      \"isEmailVerified\": true,\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+            "body": "{\n  \"items\": [\n    {\n      \"id\": \"507f1f77bcf86cd799439012\",\n      \"name\": \"Agent Smith\",\n      \"agentProfile\": {\n        \"pricingPlan\": \"basic\",\n        \"companyName\": \"Acme Logistics Ltd\",\n        \"location\": \"Lagos, Nigeria\",\n        \"aboutCompany\": \"Full-service freight forwarding.\",\n        \"transportModes\": [\"sea_cargo\", \"air_cargo\"],\n        \"isVerified\": false,\n        \"status\": \"approved\",\n        \"documentUrls\": [\"https://res.cloudinary.com/xxx/doc.pdf\"],\n        \"contraPrice\": 25000\n      },\n      \"isEmailVerified\": true,\n      \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
           }]
         },
         {
@@ -150,7 +150,7 @@
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"],\n  \"contraPrice\": 15000\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea_cargo\", \"air_cargo\", \"freight_forwarder\"],\n  \"businessAccountNumber\": \"0123456789\",\n  \"contraPrice\": 15000\n}" },
             "url": "{{baseUrl}}/agent/profile"
           },
           "response": [{
@@ -159,7 +159,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\",\n    \"contraPrice\": 15000\n  }\n}"
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea_cargo\", \"air_cargo\", \"freight_forwarder\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\",\n    \"contraPrice\": 15000\n  }\n}"
           }]
         },
         {
@@ -311,6 +311,7 @@
       "item": [
         {
           "name": "List Users",
+          "description": "For `role=agent`, each item includes `uploadedFileUrls` (same as `agentProfile.documentUrls`). Shippers in list have `uploadedFileUrls: []` — use Get User by id for shipper file URLs from shipments.",
           "request": { "method": "GET", "url": "{{baseUrl}}/admin/users?page=1&limit=10&role=user&search=&country=" },
           "response": [{
             "name": "200 OK",
@@ -323,7 +324,18 @@
         },
         {
           "name": "Get User By Id",
+          "description": "Includes `userState`, `uploadedFileUrls` (agent docs or shipper shipment `imageUrls`), and `agentProfile` when applicable.",
           "request": { "method": "GET", "url": "{{baseUrl}}/admin/users/{{userId}}" }
+        },
+        {
+          "name": "Patch User (userState)",
+          "description": "Set `userState`: `active` | `blocked` | `suspended` | `pending`. Use `active` to approve a new agent after review.",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userState\": \"active\"\n}" },
+            "url": "{{baseUrl}}/admin/users/{{userId}}"
+          }
         },
         {
           "name": "List Agents",
@@ -339,6 +351,7 @@
         },
         {
           "name": "List Shipments",
+          "description": "Items include `senderEmail`, `receiverEmail`, and populated `requestedAgentId` / `assignedAgentId` / `acceptedBy` (name, email, phone, agentProfile) when set.",
           "request": { "method": "GET", "url": "{{baseUrl}}/admin/shipments?page=1&limit=10&filter=all&search=&cargoType=" },
           "response": [{
             "name": "200 OK",
@@ -346,7 +359,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"items\": [\n    {\n      \"_id\": \"507f1f77bcf86cd799439020\",\n      \"cargoName\": \"Medical Supplies\",\n      \"status\": \"pending\",\n      \"originCity\": \"Lagos\",\n      \"destinationCity\": \"Abuja\",\n      \"createdBy\": { \"name\": \"John Doe\", \"email\": \"john@example.com\" }\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
+            "body": "{\n  \"items\": [\n    {\n      \"_id\": \"507f1f77bcf86cd799439020\",\n      \"cargoName\": \"Medical Supplies\",\n      \"status\": \"pending\",\n      \"originCity\": \"Lagos\",\n      \"destinationCity\": \"Abuja\",\n      \"senderEmail\": \"shipper@example.com\",\n      \"receiverEmail\": \"consignee@example.com\",\n      \"createdBy\": { \"name\": \"John Doe\", \"email\": \"john@example.com\" },\n      \"assignedAgentId\": { \"name\": \"Agent Smith\", \"email\": \"agent@example.com\", \"phone\": \"+234...\" }\n    }\n  ],\n  \"meta\": {\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 10,\n    \"totalPages\": 1\n  }\n}"
           }]
         },
         {
@@ -395,7 +408,7 @@
         },
         {
           "name": "Patch Agent Profile",
-          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"premium\",\n  \"companyName\": \"Global Logistics Corp\",\n  \"dateEstablished\": \"2015-01-10\",\n  \"location\": \"Port Harcourt, Nigeria\",\n  \"aboutCompany\": \"Updated company description for the directory.\",\n  \"transportModes\": [\"sea\", \"multimodal\"],\n  \"isVerified\": true,\n  \"logisticsId\": \"LOG-001\",\n  \"trucksCount\": 12,\n  \"loadCapacity\": \"4.5T\",\n  \"category\": \"freight\",\n  \"documentUrls\": [\"https://res.cloudinary.com/xxx/doc1.pdf\"]\n}" }, "url": "{{baseUrl}}/admin/agents/{{agentId}}" }
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"premium\",\n  \"companyName\": \"Global Logistics Corp\",\n  \"dateEstablished\": \"2015-01-10\",\n  \"location\": \"Port Harcourt, Nigeria\",\n  \"aboutCompany\": \"Updated company description for the directory.\",\n  \"transportModes\": [\"sea_cargo\", \"clearing_and_forwarding\"],\n  \"businessAccountNumber\": \"0123456789\",\n  \"isVerified\": true,\n  \"logisticsId\": \"LOG-001\",\n  \"trucksCount\": 12,\n  \"loadCapacity\": \"4.5T\",\n  \"category\": \"freight\",\n  \"documentUrls\": [\"https://res.cloudinary.com/xxx/doc1.pdf\"]\n}" }, "url": "{{baseUrl}}/admin/agents/{{agentId}}" }
         },
         {
           "name": "Order History",
@@ -409,7 +422,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"parcelItems\": [\n    { \"name\": \"Box A\", \"quantity\": 2, \"price\": 15000 },\n    { \"name\": \"Box B\", \"price\": 10000 }\n  ],\n  \"totalPrice\": 45000,\n  \"paymentLink\": \"https://paystack.com/pay/your-page-reference\"\n}"
+              "raw": "{\n  \"parcelItems\": [\n    { \"name\": \"Box A\", \"quantity\": 2, \"price\": 15000 },\n    { \"name\": \"Box B\", \"price\": 10000 }\n  ],\n  \"totalPrice\": 45000,\n  \"paymentLink\": \"https://paystack.com/pay/your-page-reference\",\n  \"receiverName\": \"Jane Smith\",\n  \"receiverEmail\": \"jane@example.com\"\n}"
             },
             "url": "{{baseUrl}}/admin/shipments/{{shipmentId}}/send-invoice"
           }
@@ -483,7 +496,7 @@
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea\", \"land\", \"air\"],\n  \"contraPrice\": 15000\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"pricingPlan\": \"basic\",\n  \"companyName\": \"Acme Logistics Ltd\",\n  \"dateEstablished\": \"2018-06-15\",\n  \"location\": \"Lagos, Nigeria\",\n  \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n  \"transportModes\": [\"sea_cargo\", \"air_cargo\", \"freight_forwarder\"],\n  \"businessAccountNumber\": \"0123456789\",\n  \"contraPrice\": 15000\n}" },
             "url": "{{baseUrl}}/agent/profile"
           },
           "response": [{
@@ -492,7 +505,7 @@
             "code": 200,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea\", \"land\", \"air\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\",\n    \"contraPrice\": 15000\n  }\n}"
+            "body": "{\n  \"id\": \"507f1f77bcf86cd799439012\",\n  \"name\": \"Agent Smith\",\n  \"email\": \"agent@example.com\",\n  \"role\": \"agent\",\n  \"isEmailVerified\": true,\n  \"agentProfile\": {\n    \"pricingPlan\": \"basic\",\n    \"companyName\": \"Acme Logistics Ltd\",\n    \"dateEstablished\": \"2018-06-15T00:00:00.000Z\",\n    \"location\": \"Lagos, Nigeria\",\n    \"aboutCompany\": \"Full-service freight forwarding and customs clearance since 2018.\",\n    \"transportModes\": [\"sea_cargo\", \"air_cargo\", \"freight_forwarder\"],\n    \"isVerified\": false,\n    \"status\": \"pending_review\",\n    \"contraPrice\": 15000\n  }\n}"
           }]
         },
         {
@@ -624,20 +637,20 @@
         {
           "name": "Create Shipment",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('shipmentId', pm.response.json()._id); }"] } }],
-          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"pickupMethod\": \"terminal\",\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments" },
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"senderEmail\": \"shipper@example.com\",\n  \"receiverEmail\": \"consignee@example.com\",\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"pickupMethod\": \"terminal\",\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments" },
           "response": [{
             "name": "201 Created",
             "status": "Created",
             "code": 201,
             "_postman_previewlanguage": "json",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"events\": [{\n    \"status\": \"created\",\n    \"description\": \"Shipment created\",\n    \"location\": \"Lagos → Abuja\",\n    \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n  }],\n  \"preferredPickupDate\": \"2025-03-15T00:00:00.000Z\",\n  \"urgency\": true,\n  \"status\": \"pending\",\n  \"imageUrls\": [],\n  \"createdAt\": \"2025-03-11T12:00:00.000Z\",\n  \"updatedAt\": \"2025-03-11T12:00:00.000Z\"\n}"
+            "body": "{\n  \"_id\": \"507f1f77bcf86cd799439020\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"senderEmail\": \"shipper@example.com\",\n  \"receiverEmail\": \"consignee@example.com\",\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"events\": [{\n    \"status\": \"created\",\n    \"description\": \"Shipment created\",\n    \"location\": \"Lagos → Abuja\",\n    \"createdAt\": \"2025-03-11T12:00:00.000Z\"\n  }],\n  \"preferredPickupDate\": \"2025-03-15T00:00:00.000Z\",\n  \"urgency\": true,\n  \"status\": \"pending\",\n  \"imageUrls\": [],\n  \"createdAt\": \"2025-03-11T12:00:00.000Z\",\n  \"updatedAt\": \"2025-03-11T12:00:00.000Z\"\n}"
           }]
         },
         {
           "name": "Send Shipment Request (to agent)",
           "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201 && pm.response.json()._id) { pm.collectionVariables.set('shipmentId', pm.response.json()._id); }"] } }],
-          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"pickupMethod\": \"dispatch\",\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments/request", "description": "Shipper JWT. Same body as Create Shipment plus agentId. Optional pickupMethod: terminal | dispatch. Sets status to requested. Set collection variable agentId to the target agent's user _id." },
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"cargoName\": \"Medical Supplies\",\n  \"cargoType\": \"Boxes\",\n  \"weight\": \"50kg\",\n  \"dimensions\": \"100x80x60cm\",\n  \"category\": \"medical\",\n  \"originCity\": \"Lagos\",\n  \"destinationCity\": \"Abuja\",\n  \"addressFrom\": {\n    \"line1\": \"1121 Allen Avenue\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos\",\n    \"country\": \"NG\",\n    \"zip\": \"101001\",\n    \"name\": \"John Doe\",\n    \"phone\": \"+2348012345678\"\n  },\n  \"addressTo\": {\n    \"line1\": \"45 Independence Avenue\",\n    \"city\": \"Abuja\",\n    \"state\": \"FCT\",\n    \"country\": \"NG\",\n    \"zip\": \"900001\",\n    \"name\": \"Jane Smith\",\n    \"phone\": \"+2348098765432\"\n  },\n  \"senderEmail\": \"shipper@example.com\",\n  \"receiverEmail\": \"consignee@example.com\",\n  \"parcelItems\": [{\n    \"name\": \"Medical Supplies\",\n    \"description\": \"Boxes\",\n    \"quantity\": 1,\n    \"weight\": 2.5,\n    \"value\": 50000\n  }],\n  \"preferredPickupDate\": \"2025-03-15\",\n  \"urgency\": true,\n  \"pickupMethod\": \"dispatch\",\n  \"imageUrls\": []\n}" }, "url": "{{baseUrl}}/shipments/request", "description": "Shipper JWT. Same body as Create Shipment plus agentId. Optional pickupMethod: terminal | dispatch. Sets status to requested. Set collection variable agentId to the target agent's user _id." },
           "response": []
         },
         {

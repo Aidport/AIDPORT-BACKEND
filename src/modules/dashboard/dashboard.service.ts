@@ -2,16 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Shipment, ShipmentDocument, ShipmentStatus } from '../shipment/entities/shipment.entity';
-import { Role } from '../../common/decorators/roles.decorator';
+import { ShipmentService } from '../shipment/shipment.service';
 
 @Injectable()
 export class DashboardService {
   constructor(
     @InjectModel(Shipment.name) private shipmentModel: Model<ShipmentDocument>,
+    private readonly shipmentService: ShipmentService,
   ) {}
 
   async getUserDashboard(userId: string) {
-    const [myShipments, recentShipments, byStatus] = await Promise.all([
+    const [myShipments, recentShipments, byStatus, shipmentStats] =
+      await Promise.all([
       this.shipmentModel
         .find({ createdBy: new Types.ObjectId(userId) })
         .sort({ createdAt: -1 })
@@ -27,6 +29,7 @@ export class DashboardService {
         { $match: { createdBy: new Types.ObjectId(userId) } },
         { $group: { _id: '$status', count: { $sum: 1 } } },
       ]),
+      this.shipmentService.getShipmentStatsForShipper(userId),
     ]);
 
     const total = await this.shipmentModel.countDocuments({
@@ -35,6 +38,7 @@ export class DashboardService {
 
     return {
       totalShipments: total,
+      shipmentStats,
       recentShipments,
       myShipments,
       byStatus: byStatus.reduce((acc, s) => {
@@ -51,6 +55,7 @@ export class DashboardService {
       deliveredCount,
       recentIncoming,
       weeklyDelivered,
+      shipmentStats,
     ] = await Promise.all([
       this.shipmentModel.countDocuments({
         $or: [
@@ -102,6 +107,7 @@ export class DashboardService {
         { $sort: { _id: -1 } },
         { $limit: 7 },
       ]),
+      this.shipmentService.getShipmentStatsForAgent(agentId),
     ]);
 
     const inTransit = await this.shipmentModel.countDocuments({
@@ -119,6 +125,7 @@ export class DashboardService {
       deliveredCount,
       inTransitCount: inTransit,
       acceptedCount: accepted,
+      shipmentStats,
       recentIncoming,
       myAccepted,
       weeklyDelivered: weeklyDelivered.map((w) => ({ date: w._id, count: w.count })),

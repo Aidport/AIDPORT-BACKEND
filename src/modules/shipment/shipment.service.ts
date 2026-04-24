@@ -30,6 +30,32 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** Buckets: pending, cancelled, delivered, in_transit (all shipments partition into one bucket). */
+export type ShipmentStatsSummary = {
+  pending: number;
+  cancelled: number;
+  delivered: number;
+  in_transit: number;
+};
+
+const PENDING_STATUS_GROUP: ShipmentStatus[] = [
+  ShipmentStatus.Draft,
+  ShipmentStatus.Pending,
+  ShipmentStatus.Requested,
+  ShipmentStatus.Paid,
+  ShipmentStatus.Accepted,
+  ShipmentStatus.Processing,
+];
+const CANCELLED_STATUS_GROUP: ShipmentStatus[] = [
+  ShipmentStatus.Cancelled,
+  ShipmentStatus.Declined,
+];
+const IN_TRANSIT_STATUS_GROUP: ShipmentStatus[] = [
+  ShipmentStatus.InTransit,
+  ShipmentStatus.PickedUp,
+  ShipmentStatus.Delayed,
+];
+
 export type ShipmentAdminFilter =
   | 'all'
   | 'active'
@@ -59,6 +85,57 @@ export class ShipmentService {
       return true;
     }
     return false;
+  }
+
+  /** Shipments the shipper created. */
+  async getShipmentStatsForShipper(shipperId: string): Promise<ShipmentStatsSummary> {
+    return this.aggregateStatsForMatch({
+      createdBy: new Types.ObjectId(shipperId),
+    });
+  }
+
+  /**
+   * Shipments where the agent is involved (assignee, accepter, or targeted requestee).
+   */
+  async getShipmentStatsForAgent(agentId: string): Promise<ShipmentStatsSummary> {
+    const oid = new Types.ObjectId(agentId);
+    return this.aggregateStatsForMatch({
+      $or: [
+        { assignedAgentId: oid },
+        { acceptedBy: oid },
+        { requestedAgentId: oid },
+      ],
+    });
+  }
+
+  /** Platform-wide shipment counts in the four summary buckets. */
+  async getPlatformShipmentStats(): Promise<ShipmentStatsSummary> {
+    return this.aggregateStatsForMatch({});
+  }
+
+  private async aggregateStatsForMatch(
+    match: Record<string, unknown>,
+  ): Promise<ShipmentStatsSummary> {
+    const base =
+      Object.keys(match).length > 0 ? [match] : [];
+    const and = (statusCond: Record<string, unknown>) =>
+      base.length ? { $and: [match, statusCond] } : statusCond;
+
+    const [pending, cancelled, delivered, in_transit] = await Promise.all([
+      this.shipmentModel.countDocuments(
+        and({ status: { $in: PENDING_STATUS_GROUP } }),
+      ),
+      this.shipmentModel.countDocuments(
+        and({ status: { $in: CANCELLED_STATUS_GROUP } }),
+      ),
+      this.shipmentModel.countDocuments(
+        and({ status: ShipmentStatus.Delivered }),
+      ),
+      this.shipmentModel.countDocuments(
+        and({ status: { $in: IN_TRANSIT_STATUS_GROUP } }),
+      ),
+    ]);
+    return { pending, cancelled, delivered, in_transit };
   }
 
   async create(createShipmentDto: CreateShipmentDto, userId: string) {

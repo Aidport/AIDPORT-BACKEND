@@ -8,7 +8,7 @@ import {
   ShipmentStatus,
 } from '../shipment/entities/shipment.entity';
 import { UserService } from '../user/user.service';
-import { ShipmentService } from '../shipment/shipment.service';
+import { ShipmentService, ShipmentStatsSummary } from '../shipment/shipment.service';
 import { Role } from '../../common/decorators/roles.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateUserDto } from '../user/dto/create-user.dto';
@@ -126,8 +126,17 @@ export class AdminService {
       this.userModel.countDocuments(match),
     ]);
 
+    const itemsWithStats = await Promise.all(
+      (items as { _id: Types.ObjectId }[]).map(async (row) => ({
+        ...row,
+        shipmentStats: await this.shipmentService.getShipmentStatsForShipper(
+          row._id.toString(),
+        ),
+      })),
+    );
+
     return {
-      items,
+      items: itemsWithStats,
       meta: {
         total,
         page,
@@ -175,7 +184,13 @@ export class AdminService {
     ]);
 
     return {
-      items,
+      items: await Promise.all(
+        items.map((row) =>
+          this.withShipmentStats(
+            row as unknown as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
+          ),
+        ),
+      ),
       meta: {
         total,
         page,
@@ -194,11 +209,14 @@ export class AdminService {
       .lean()
       .exec();
     if (!agent) throw new NotFoundException('Agent not found');
-    return this.attachUploadedFileUrls(agent as unknown as {
+    const withFiles = await this.attachUploadedFileUrls(agent as unknown as {
       _id: Types.ObjectId;
       role?: string;
       agentProfile?: { documentUrls?: string[] };
     });
+    return this.withShipmentStats(
+      withFiles as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
+    );
   }
 
   async updateAgentStatus(id: string, dto: UpdateAgentStatusDto) {
@@ -292,7 +310,8 @@ export class AdminService {
     const withFiles = await this.attachUploadedFileUrls(
       u as unknown as { _id: Types.ObjectId; role?: string; agentProfile?: { documentUrls?: string[] } },
     );
-    return { ...withFiles, shipmentCount };
+    const shipmentStats = await this.shipmentService.getShipmentStatsForShipper(id);
+    return { ...withFiles, shipmentCount, shipmentStats };
   }
 
   async updateShipper(id: string, dto: UpdateProfileDto) {
@@ -320,8 +339,11 @@ export class AdminService {
       .lean()
       .exec();
     if (!u) throw new NotFoundException('User not found');
-    return this.attachUploadedFileUrls(
+    const withFiles = await this.attachUploadedFileUrls(
       u as unknown as { _id: Types.ObjectId; role?: string; agentProfile?: { documentUrls?: string[] } },
+    );
+    return this.withShipmentStats(
+      withFiles as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
     );
   }
 
@@ -329,6 +351,35 @@ export class AdminService {
    * Agents: `agentProfile.documentUrls`. Shippers: distinct `imageUrls` from their shipments.
    * List endpoint only fills agent docs; use `GET .../users/:id` for shipper file URLs.
    */
+  private static emptyShipmentStats(): ShipmentStatsSummary {
+    return { pending: 0, cancelled: 0, delivered: 0, in_transit: 0 };
+  }
+
+  private async withShipmentStats(u: {
+    _id: Types.ObjectId;
+    role?: string;
+  } & Record<string, unknown>): Promise<
+    typeof u & { shipmentStats: ShipmentStatsSummary }
+  > {
+    if (u.role === Role.User) {
+      return {
+        ...u,
+        shipmentStats: await this.shipmentService.getShipmentStatsForShipper(
+          u._id.toString(),
+        ),
+      };
+    }
+    if (u.role === Role.Agent) {
+      return {
+        ...u,
+        shipmentStats: await this.shipmentService.getShipmentStatsForAgent(
+          u._id.toString(),
+        ),
+      };
+    }
+    return { ...u, shipmentStats: AdminService.emptyShipmentStats() };
+  }
+
   private async attachUploadedFileUrls(u: {
     _id: Types.ObjectId;
     role?: string;
@@ -395,16 +446,23 @@ export class AdminService {
       this.userModel.countDocuments(match),
     ]);
 
-    const items = raw.map((row) => {
-      if (row.role === Role.Agent) {
-        const docs = row.agentProfile?.documentUrls;
-        return {
-          ...row,
-          uploadedFileUrls: Array.isArray(docs) ? docs : [],
-        };
-      }
-      return { ...row, uploadedFileUrls: [] as string[] };
-    });
+    const items = await Promise.all(
+      raw.map(async (row) => {
+        const base =
+          row.role === Role.Agent
+            ? (() => {
+                const docs = row.agentProfile?.documentUrls;
+                return {
+                  ...row,
+                  uploadedFileUrls: Array.isArray(docs) ? docs : [],
+                };
+              })()
+            : { ...row, uploadedFileUrls: [] as string[] };
+        return this.withShipmentStats(
+          base as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
+        );
+      }),
+    );
 
     return {
       items,
@@ -447,6 +505,7 @@ export class AdminService {
       totalShipments,
       revenueAgg,
       quoteBreakdown,
+      shipmentStats,
     ] = await Promise.all([
       this.userModel.countDocuments({ role: Role.User }),
       this.userModel.countDocuments({ role: Role.Agent }),
@@ -458,6 +517,7 @@ export class AdminService {
         ])
         .exec(),
       this.quotesService.countByStatus(),
+      this.shipmentService.getPlatformShipmentStats(),
     ]);
 
     const totalRevenue = revenueAgg[0]?.total ?? 0;
@@ -548,6 +608,7 @@ export class AdminService {
         pendingShipments,
         deliveredShipments,
         recentShipmentsCount,
+        shipmentStats,
       },
       quoteActivity: quoteBreakdown,
       shipmentsOverTime: shipmentsByMonth.map((m) => ({
