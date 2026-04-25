@@ -62,6 +62,10 @@ export interface UserResponse {
   zipCode?: string;
   country?: string;
   avatarUrl?: string;
+  /** Regular users: persisted file URLs from `/upload` (Cloudinary). */
+  shipperFileUrls?: string[];
+  /** Admins: persisted file URLs from `/upload`. */
+  adminFileUrls?: string[];
   settings?: UserSettingsResponse;
   agentProfile?: AgentProfileResponse;
 }

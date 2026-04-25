@@ -64,6 +64,14 @@ export class User {
   @Prop()
   avatarUrl?: string;
 
+  /** Shipper (role user): URLs from POST /upload/* appended here; used with shipment `imageUrls` for admin `uploadedFileUrls`. */
+  @Prop({ type: [String], default: [] })
+  shipperFileUrls?: string[];
+
+  /** Admin: URLs from POST /upload/* — same pattern as shippers, separate array for role `admin`. */
+  @Prop({ type: [String], default: [] })
+  adminFileUrls?: string[];
+
   @Prop({ type: UserSettingsSchema, default: () => ({}) })
   settings?: UserSettings;
 

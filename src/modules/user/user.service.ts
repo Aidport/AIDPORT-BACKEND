@@ -144,6 +144,82 @@ export class UserService {
   }
 
   /**
+   * Append new Cloudinary URLs to `shipperFileUrls` (deduped by Mongo $addToSet).
+   * Uses atomic `findOneAndUpdate` so URLs persist even if `save()` / document hydration misbehaves.
+   */
+  async appendShipperFileUrls(userId: string, newUrls: string[]) {
+    const incoming = newUrls.map((u) => String(u).trim()).filter(Boolean);
+    if (incoming.length === 0) {
+      const user = await this.userModel.findById(userId).exec();
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      if (user.role !== Role.User) {
+        throw new ForbiddenException(
+          'Only shipper accounts can persist uploads to this profile',
+        );
+      }
+      return this.toUserResponse(user);
+    }
+
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, role: Role.User },
+        { $addToSet: { shipperFileUrls: { $each: incoming } } },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!updated) {
+      const existing = await this.userModel.findById(userId).lean().exec();
+      if (!existing) {
+        throw new NotFoundException('User not found');
+      }
+      throw new ForbiddenException(
+        'Only shipper accounts can persist uploads to this profile',
+      );
+    }
+    return this.toUserResponse(updated);
+  }
+
+  /**
+   * Append new Cloudinary URLs to `adminFileUrls` (deduped by Mongo $addToSet).
+   * Platform admins’ uploads are persisted the same as shippers/agents.
+   */
+  async appendAdminFileUrls(userId: string, newUrls: string[]) {
+    const incoming = newUrls.map((u) => String(u).trim()).filter(Boolean);
+    if (incoming.length === 0) {
+      const user = await this.userModel.findById(userId).exec();
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      if (user.role !== Role.Admin) {
+        throw new ForbiddenException(
+          'Only admin accounts can persist uploads to this field',
+        );
+      }
+      return this.toUserResponse(user);
+    }
+
+    const updated = await this.userModel
+      .findOneAndUpdate(
+        { _id: userId, role: Role.Admin },
+        { $addToSet: { adminFileUrls: { $each: incoming } } },
+        { new: true, runValidators: true },
+      )
+      .exec();
+
+    if (!updated) {
+      const existing = await this.userModel.findById(userId).lean().exec();
+      if (!existing) {
+        throw new NotFoundException('User not found');
+      }
+      throw new ForbiddenException('Only admin accounts can persist uploads to this field');
+    }
+    return this.toUserResponse(updated);
+  }
+
+  /**
    * Append new Cloudinary URLs to `agentProfile.documentUrls` (deduped, order preserved).
    * Used when POST /upload?attachTo=agent so documents appear on GET /agent/me without a second request.
    */
@@ -867,12 +943,29 @@ export class UserService {
       avatarUrl: user.avatarUrl,
       settings: user.settings,
     };
+    const shipperUrls =
+      user.role === Role.User && Array.isArray(user.shipperFileUrls)
+        ? user.shipperFileUrls
+        : undefined;
+    const adminUrls =
+      user.role === Role.Admin && Array.isArray(user.adminFileUrls)
+        ? user.adminFileUrls
+        : undefined;
+    let withRoleUploads: UserResponse = base;
+    if (shipperUrls && shipperUrls.length > 0) {
+      withRoleUploads = { ...withRoleUploads, shipperFileUrls: shipperUrls };
+    }
+    if (adminUrls && adminUrls.length > 0) {
+      withRoleUploads = { ...withRoleUploads, adminFileUrls: adminUrls };
+    }
     const merged = this.mergeAgentProfileSources(user);
     if (merged) {
       const agentProfile = this.toAgentProfileResponse(merged);
-      return agentProfile ? { ...base, agentProfile } : base;
+      return agentProfile
+        ? { ...withRoleUploads, agentProfile }
+        : withRoleUploads;
     }
-    return base;
+    return withRoleUploads;
   }
 }
 
