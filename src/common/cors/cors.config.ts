@@ -2,6 +2,7 @@
 export const DEFAULT_CORS_ORIGINS = [
   'https://admin-zeta-eight-76.vercel.app',
   'https://aidport-web.vercel.app',
+  'https://aidport-admin.vercel.app/',
 ] as const;
 
 export function getAllowedCorsOrigins(): string[] {
