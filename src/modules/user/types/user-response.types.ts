@@ -62,6 +62,10 @@ export interface UserResponse {
   zipCode?: string;
   country?: string;
   avatarUrl?: string;
+  /** Shippers: persisted URLs from `/upload`. */
+  shipperFileUrls?: string[];
+  /** Admins: persisted URLs from `/upload`. */
+  adminFileUrls?: string[];
   settings?: UserSettingsResponse;
   agentProfile?: AgentProfileResponse;
 }

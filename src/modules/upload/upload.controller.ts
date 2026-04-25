@@ -86,20 +86,53 @@ function parseUrlArrayField(raw: unknown, field: string): string[] {
 
 export type JwtUserPayload = { id: string; role: string; email?: string };
 
-function isAgentRole(role: string | undefined): boolean {
-  return String(role ?? '').toLowerCase() === 'agent';
-}
-
-/** Agents: always persist upload URLs to MongoDB unless the client opts out (`attachTo=none`). */
-function shouldSaveUrlsToAgentProfile(
+/**
+ * Persist delivery URLs by role (unless `attachTo=none`):
+ * `user` → `shipperFileUrls`, `agent` → `agentProfile.documentUrls`, `admin` → `adminFileUrls`.
+ */
+function getUploadPersistMode(
   attachTo: string | undefined,
   userRole: string | undefined,
-): boolean {
+): 'none' | 'agent' | 'user' | 'admin' {
   const v = attachTo?.trim().toLowerCase();
   if (v === 'none' || v === 'off' || v === 'false' || v === '0') {
-    return false;
+    return 'none';
   }
-  return isAgentRole(userRole);
+  const r = String(userRole ?? '').toLowerCase().trim();
+  if (r === 'agent') {
+    return 'agent';
+  }
+  if (r === 'user') {
+    return 'user';
+  }
+  if (r === 'admin') {
+    return 'admin';
+  }
+  return 'none';
+}
+
+function getUploadUserId(user: JwtUserPayload | undefined): string | undefined {
+  if (!user) {
+    return undefined;
+  }
+  const u = user as { id?: string; sub?: string };
+  if (u.id) {
+    return String(u.id);
+  }
+  if (u.sub) {
+    return String(u.sub);
+  }
+  return undefined;
+}
+
+function requireUploadUserId(user: JwtUserPayload | undefined): string {
+  const id = getUploadUserId(user);
+  if (!id) {
+    throw new BadRequestException(
+      'Cannot save uploads: missing user id in auth. Sign in again and retry.',
+    );
+  }
+  return id;
 }
 
 @ApiTags('Upload')
@@ -195,7 +228,7 @@ export class UploadController {
       'Multipart: `files` (0–10 new files). Form fields `existingUrls` and `removeUrls` are JSON string arrays of Cloudinary URLs. ' +
       'Removals are deleted from Cloudinary first, then new files are merged after `existingUrls`. ' +
       '`existingUrls` must not overlap `removeUrls`. ' +
-      'Agents: new file URLs are always saved to `agentProfile.documentUrls` (same as POST /upload/single). `attachTo=none` = Cloudinary only, skip DB.',
+      'New files: agents → `agentProfile.documentUrls`, shippers → `shipperFileUrls`, admins → `adminFileUrls`. `attachTo=none` = Cloudinary only.',
   })
   @ApiQuery({
     name: 'attachTo',
@@ -270,16 +303,38 @@ export class UploadController {
       removalFailed: removalResult.failed.length ? removalResult.failed : undefined,
     };
 
-    if (
-      shouldSaveUrlsToAgentProfile(attachTo, user?.role) &&
-      newUrls.length > 0 &&
-      user?.id
-    ) {
-      const userResp = await this.userService.appendAgentDocumentUrls(user.id, newUrls);
+    const persist = getUploadPersistMode(attachTo, user?.role);
+    if (persist === 'agent' && newUrls.length > 0) {
+      const userResp = await this.userService.appendAgentDocumentUrls(
+        requireUploadUserId(user),
+        newUrls,
+      );
       return {
         ...base,
         savedToAgentProfile: true,
         agentProfile: userResp.agentProfile,
+      };
+    }
+    if (persist === 'user' && newUrls.length > 0) {
+      const userResp = await this.userService.appendShipperFileUrls(
+        requireUploadUserId(user),
+        newUrls,
+      );
+      return {
+        ...base,
+        savedToUserProfile: true,
+        shipperFileUrls: userResp.shipperFileUrls,
+      };
+    }
+    if (persist === 'admin' && newUrls.length > 0) {
+      const userResp = await this.userService.appendAdminFileUrls(
+        requireUploadUserId(user),
+        newUrls,
+      );
+      return {
+        ...base,
+        savedToAdminProfile: true,
+        adminFileUrls: userResp.adminFileUrls,
       };
     }
 
@@ -290,7 +345,7 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload a single file to Cloudinary',
     description:
-      'Multipart field name: `file`. Max 10MB. Response `url` / `publicUrl` are **public** Cloudinary HTTPS links — use them like any normal file host (`target="_blank"`, `<img src>`, PDF links); no auth to view. PDFs are stored under `image/upload` like Cloudinary recommends; on the **Free** plan you must allow PDF delivery in the Cloudinary console (Settings → Security). **Agents:** also saved to `agentProfile.documentUrls` unless `attachTo=none`.',
+      'Multipart: `file`. **Agents** → `agentProfile.documentUrls`. **Shippers** → `shipperFileUrls`. **Admins** → `adminFileUrls`. Skip with `attachTo=none`.',
   })
   @ApiQuery({
     name: 'attachTo',
@@ -334,12 +389,38 @@ export class UploadController {
         'Upload did not return a Cloudinary URL. Check CLOUDINARY_CLOUD_NAME / API keys and that the file was accepted.',
       );
     }
-    if (shouldSaveUrlsToAgentProfile(attachTo, user?.role) && user?.id) {
-      const userResp = await this.userService.appendAgentDocumentUrls(user.id, [mapped.url]);
+    const persist = getUploadPersistMode(attachTo, user?.role);
+    if (persist === 'agent') {
+      const userResp = await this.userService.appendAgentDocumentUrls(
+        requireUploadUserId(user),
+        [mapped.url],
+      );
       return {
         ...mapped,
         savedToAgentProfile: true,
         agentProfile: userResp.agentProfile,
+      };
+    }
+    if (persist === 'user') {
+      const userResp = await this.userService.appendShipperFileUrls(
+        requireUploadUserId(user),
+        [mapped.url],
+      );
+      return {
+        ...mapped,
+        savedToUserProfile: true,
+        shipperFileUrls: userResp.shipperFileUrls,
+      };
+    }
+    if (persist === 'admin') {
+      const userResp = await this.userService.appendAdminFileUrls(
+        requireUploadUserId(user),
+        [mapped.url],
+      );
+      return {
+        ...mapped,
+        savedToAdminProfile: true,
+        adminFileUrls: userResp.adminFileUrls,
       };
     }
     return mapped;
@@ -349,7 +430,7 @@ export class UploadController {
   @ApiOperation({
     summary: 'Upload up to 10 files to Cloudinary',
     description:
-      'Each item includes `url` / `publicUrl` — **public** HTTPS links (same as any normal file CDN). **Agents:** URLs appended to `agentProfile.documentUrls` unless `attachTo=none`.',
+      '**Agents** → `agentProfile.documentUrls`. **Shippers** → `shipperFileUrls`. **Admins** → `adminFileUrls` unless `attachTo=none`.',
   })
   @ApiQuery({
     name: 'attachTo',
@@ -403,16 +484,40 @@ export class UploadController {
         );
       }
     }
-    if (shouldSaveUrlsToAgentProfile(attachTo, user?.role) && user?.id) {
-      const urls = mapped.map((m) => m.url).filter(Boolean) as string[];
-      if (urls.length > 0) {
-        const userResp = await this.userService.appendAgentDocumentUrls(user.id, urls);
-        return {
-          files: mapped,
-          savedToAgentProfile: true,
-          agentProfile: userResp.agentProfile,
-        };
-      }
+    const urls = mapped.map((m) => m.url).filter(Boolean) as string[];
+    const persist = getUploadPersistMode(attachTo, user?.role);
+    if (persist === 'agent' && urls.length > 0) {
+      const userResp = await this.userService.appendAgentDocumentUrls(
+        requireUploadUserId(user),
+        urls,
+      );
+      return {
+        files: mapped,
+        savedToAgentProfile: true,
+        agentProfile: userResp.agentProfile,
+      };
+    }
+    if (persist === 'user' && urls.length > 0) {
+      const userResp = await this.userService.appendShipperFileUrls(
+        requireUploadUserId(user),
+        urls,
+      );
+      return {
+        files: mapped,
+        savedToUserProfile: true,
+        shipperFileUrls: userResp.shipperFileUrls,
+      };
+    }
+    if (persist === 'admin' && urls.length > 0) {
+      const userResp = await this.userService.appendAdminFileUrls(
+        requireUploadUserId(user),
+        urls,
+      );
+      return {
+        files: mapped,
+        savedToAdminProfile: true,
+        adminFileUrls: userResp.adminFileUrls,
+      };
     }
     return mapped;
   }

@@ -64,6 +64,14 @@ export class User {
   @Prop()
   avatarUrl?: string;
 
+  /** Shipper: Cloudinary delivery URLs from POST /upload. */
+  @Prop({ type: [String], default: [] })
+  shipperFileUrls?: string[];
+
+  /** Admin: Cloudinary delivery URLs from POST /upload. */
+  @Prop({ type: [String], default: [] })
+  adminFileUrls?: string[];
+
   @Prop({ type: UserSettingsSchema, default: () => ({}) })
   settings?: UserSettings;
 

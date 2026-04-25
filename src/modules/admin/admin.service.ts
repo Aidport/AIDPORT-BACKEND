@@ -127,12 +127,24 @@ export class AdminService {
     ]);
 
     const itemsWithStats = await Promise.all(
-      (items as { _id: Types.ObjectId }[]).map(async (row) => ({
-        ...row,
-        shipmentStats: await this.shipmentService.getShipmentStatsForShipper(
-          row._id.toString(),
-        ),
-      })),
+      (items as { _id: Types.ObjectId; role?: string; shipperFileUrls?: string[] }[]).map(
+        async (row) => {
+          const withUrls = await this.attachUploadedFileUrls(
+            {
+              _id: row._id,
+              role: row.role ?? Role.User,
+              shipperFileUrls: row.shipperFileUrls,
+            },
+          );
+          return {
+            ...row,
+            ...withUrls,
+            shipmentStats: await this.shipmentService.getShipmentStatsForShipper(
+              row._id.toString(),
+            ),
+          };
+        },
+      ),
     );
 
     return {
@@ -185,11 +197,20 @@ export class AdminService {
 
     return {
       items: await Promise.all(
-        items.map((row) =>
-          this.withShipmentStats(
-            row as unknown as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
-          ),
-        ),
+        items.map(async (row) => {
+          const withUrls = await this.attachUploadedFileUrls(
+            row as unknown as {
+              _id: Types.ObjectId;
+              role?: string;
+              shipperFileUrls?: string[];
+              adminFileUrls?: string[];
+              agentProfile?: { documentUrls?: string[] };
+            },
+          );
+          return this.withShipmentStats(
+            withUrls as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
+          );
+        }),
       ),
       meta: {
         total,
@@ -348,8 +369,8 @@ export class AdminService {
   }
 
   /**
-   * Agents: `agentProfile.documentUrls`. Shippers: distinct `imageUrls` from their shipments.
-   * List endpoint only fills agent docs; use `GET .../users/:id` for shipper file URLs.
+   * `uploadedFileUrls`: agent → `agentProfile.documentUrls`, user → `shipperFileUrls` + shipment
+   * `imageUrls`, admin → `adminFileUrls`.
    */
   private static emptyShipmentStats(): ShipmentStatsSummary {
     return { pending: 0, cancelled: 0, delivered: 0, in_transit: 0 };
@@ -361,7 +382,8 @@ export class AdminService {
   } & Record<string, unknown>): Promise<
     typeof u & { shipmentStats: ShipmentStatsSummary }
   > {
-    if (u.role === Role.User) {
+    const role = String(u.role ?? '').toLowerCase().trim();
+    if (role === 'user') {
       return {
         ...u,
         shipmentStats: await this.shipmentService.getShipmentStatsForShipper(
@@ -369,7 +391,7 @@ export class AdminService {
         ),
       };
     }
-    if (u.role === Role.Agent) {
+    if (role === 'agent') {
       return {
         ...u,
         shipmentStats: await this.shipmentService.getShipmentStatsForAgent(
@@ -383,28 +405,67 @@ export class AdminService {
   private async attachUploadedFileUrls(u: {
     _id: Types.ObjectId;
     role?: string;
+    shipperFileUrls?: string[];
+    adminFileUrls?: string[];
     agentProfile?: { documentUrls?: string[] };
   }) {
-    if (u.role === Role.Agent) {
+    const role = String(u.role ?? '').toLowerCase().trim();
+    if (role === 'agent') {
       const docs = u.agentProfile?.documentUrls;
       return {
         ...u,
         uploadedFileUrls: Array.isArray(docs) ? docs : [],
       };
     }
-    if (u.role === Role.User) {
+    if (role === 'admin') {
+      let fromProfile = u.adminFileUrls;
+      if (fromProfile == null || !Array.isArray(fromProfile)) {
+        const row = await this.userModel
+          .findById(u._id)
+          .select('adminFileUrls')
+          .lean()
+          .exec();
+        fromProfile = (row as { adminFileUrls?: string[] } | null)?.adminFileUrls;
+      }
+      return {
+        ...u,
+        uploadedFileUrls: Array.isArray(fromProfile) ? fromProfile : [],
+      };
+    }
+    if (role === 'user') {
+      let fromProfile = u.shipperFileUrls;
+      if (fromProfile == null || !Array.isArray(fromProfile)) {
+        const row = await this.userModel
+          .findById(u._id)
+          .select('shipperFileUrls')
+          .lean()
+          .exec();
+        fromProfile = (row as { shipperFileUrls?: string[] } | null)?.shipperFileUrls;
+      }
+      const out: string[] = [];
+      const seen = new Set<string>();
+      for (const im of fromProfile ?? []) {
+        if (!im) continue;
+        const s = String(im);
+        if (seen.has(s)) continue;
+        out.push(s);
+        seen.add(s);
+      }
       const rows = await this.shipmentModel
         .find({ createdBy: u._id })
         .select('imageUrls')
         .lean()
         .exec();
-      const seen = new Set<string>();
       for (const r of rows) {
         for (const im of r.imageUrls ?? []) {
-          if (im) seen.add(String(im));
+          if (!im) continue;
+          const s = String(im);
+          if (seen.has(s)) continue;
+          out.push(s);
+          seen.add(s);
         }
       }
-      return { ...u, uploadedFileUrls: [...seen] };
+      return { ...u, uploadedFileUrls: out };
     }
     return { ...u, uploadedFileUrls: [] as string[] };
   }
@@ -448,18 +509,17 @@ export class AdminService {
 
     const items = await Promise.all(
       raw.map(async (row) => {
-        const base =
-          row.role === Role.Agent
-            ? (() => {
-                const docs = row.agentProfile?.documentUrls;
-                return {
-                  ...row,
-                  uploadedFileUrls: Array.isArray(docs) ? docs : [],
-                };
-              })()
-            : { ...row, uploadedFileUrls: [] as string[] };
+        const withUrls = await this.attachUploadedFileUrls(
+          row as unknown as {
+            _id: Types.ObjectId;
+            role?: string;
+            shipperFileUrls?: string[];
+            adminFileUrls?: string[];
+            agentProfile?: { documentUrls?: string[] };
+          },
+        );
         return this.withShipmentStats(
-          base as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
+          withUrls as { _id: Types.ObjectId; role?: string } & Record<string, unknown>,
         );
       }),
     );
