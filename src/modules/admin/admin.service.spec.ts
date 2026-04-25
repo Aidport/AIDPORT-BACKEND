@@ -30,6 +30,9 @@ describe('AdminService', () => {
     findAll: jest.Mock;
     findForAdmin: jest.Mock;
     update: jest.Mock;
+    getPlatformShipmentStats: jest.Mock;
+    getShipmentStatsForShipper: jest.Mock;
+    getShipmentStatsForAgent: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -91,6 +94,24 @@ describe('AdminService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       }),
       update: jest.fn(),
+      getPlatformShipmentStats: jest.fn().mockResolvedValue({
+        pending: 0,
+        cancelled: 0,
+        delivered: 0,
+        in_transit: 0,
+      }),
+      getShipmentStatsForShipper: jest.fn().mockResolvedValue({
+        pending: 0,
+        cancelled: 0,
+        delivered: 0,
+        in_transit: 0,
+      }),
+      getShipmentStatsForAgent: jest.fn().mockResolvedValue({
+        pending: 0,
+        cancelled: 0,
+        delivered: 0,
+        in_transit: 0,
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

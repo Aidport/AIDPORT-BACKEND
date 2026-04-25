@@ -37,6 +37,49 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+/**
+ * Shapes Mongo populated shipments for the admin “Recent Shipments” table
+ * (ID, customer, agent, route, cargo, status, date, image URLs).
+ */
+function pickAgentUser(s: Record<string, unknown>) {
+  for (const key of ['assignedAgentId', 'acceptedBy', 'requestedAgentId'] as const) {
+    const v = s[key] as unknown;
+    if (v instanceof Types.ObjectId) {
+      continue;
+    }
+    if (v && typeof v === 'object') {
+      return v as { name?: string; email?: string };
+    }
+  }
+  return null;
+}
+
+function mapRecentShipmentForDashboard(s: Record<string, unknown>) {
+  const createdBy = s.createdBy as { name?: string; email?: string } | null | undefined;
+  const customer = createdBy
+    ? { name: createdBy.name ?? '—', email: createdBy.email ?? '' }
+    : { name: '—', email: '' };
+  const ag = pickAgentUser(s);
+  const origin = (s.originCity as string) ?? '';
+  const dest = (s.destinationCity as string) ?? '';
+  return {
+    id: String(s._id),
+    customer,
+    agent: ag
+      ? { name: ag.name ?? '—', email: ag.email ?? '' }
+      : null,
+    route: { origin, destination: dest },
+    routeLabel: [origin, dest].filter(Boolean).join(' → '),
+    cargoType: (s.cargoType as string) || (s.cargoName as string) || (s.category as string) || '',
+    status: s.status,
+    paymentStatus: s.paymentStatus,
+    createdAt: s.createdAt,
+    imageUrls: Array.isArray(s.imageUrls) ? s.imageUrls : [],
+  };
+}
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -557,8 +600,12 @@ export class AdminService {
     return { items: [] as { id: string; title: string; read: boolean; createdAt: string }[] };
   }
 
-  /** Full dashboard payload for admin Overview */
-  async getAnalytics() {
+  /**
+   * Single payload for the admin Overview: KPIs, charts, quote doughnut, registrations,
+   * top routes, raw + table-shaped recent shipments (incl. image URLs for cargo photos).
+   * Prefer `GET /admin/dashboard` — `GET /admin/analytics` returns the same body.
+   */
+  async getAdminDashboard() {
     const [
       totalShippers,
       totalAgents,
@@ -589,6 +636,7 @@ export class AdminService {
     const [
       shipmentsByMonth,
       registrationsByMonth,
+      registrationsByIsoWeekday,
       topRoutes,
       recentShipments,
       shipmentsByStatus,
@@ -621,6 +669,17 @@ export class AdminService {
           { $sort: { _id: 1 } },
         ])
         .exec(),
+      this.userModel
+        .aggregate<{ _id: number; count: number }>([
+          { $match: { createdAt: { $gte: twelveMonthsAgo } } },
+          {
+            $group: {
+              _id: { $isoDayOfWeek: '$createdAt' },
+              count: { $sum: 1 },
+            },
+          },
+        ])
+        .exec(),
       this.shipmentModel
         .aggregate<{ _id: { o: string; d: string }; count: number }>([
           {
@@ -640,6 +699,8 @@ export class AdminService {
         .find()
         .populate('createdBy', 'name email')
         .populate('acceptedBy', 'name email agentProfile')
+        .populate('assignedAgentId', 'name email agentProfile')
+        .populate('requestedAgentId', 'name email agentProfile')
         .sort({ createdAt: -1 })
         .limit(10)
         .lean()
@@ -659,18 +720,43 @@ export class AdminService {
         this.shipmentModel.countDocuments({ createdAt: { $gte: weekAgo } }),
       ]);
 
+    const weekdayByIso: Record<number, number> = {};
+    for (const row of registrationsByIsoWeekday) {
+      if (row._id >= 1 && row._id <= 7) {
+        weekdayByIso[row._id] = row.count;
+      }
+    }
+    const registrationsByWeekday = WEEKDAY_LABELS.map((weekday, i) => {
+      const iso = i + 1;
+      return { weekday, isoDayOfWeek: iso, count: weekdayByIso[iso] ?? 0 };
+    });
+
+    const recentRows = (recentShipments as unknown as Record<string, unknown>[]).map(
+      mapRecentShipmentForDashboard,
+    );
+
     return {
+      generatedAt: now.toISOString(),
       overview: {
         totalShipments,
         totalAgents,
         totalShippers,
         totalRevenue,
+        /** Alias for “Delivered” KPI card. */
+        delivered: deliveredShipments,
         pendingShipments,
         deliveredShipments,
         recentShipmentsCount,
         shipmentStats,
       },
+      /** Quote doughnut: pending / approved / declined / accepted */
       quoteActivity: quoteBreakdown,
+      quoteRequestActivity: {
+        pending: quoteBreakdown.pending,
+        approved: quoteBreakdown.approved,
+        declined: quoteBreakdown.rejected,
+        accepted: quoteBreakdown.accepted,
+      },
       shipmentsOverTime: shipmentsByMonth.map((m) => ({
         month: m._id,
         count: m.count,
@@ -679,17 +765,26 @@ export class AdminService {
         month: m._id,
         count: m.count,
       })),
+      /** Mon–Sun registration counts (last 12 months, ISO weekday). */
+      registrationsByWeekday,
       topTradeRoutes: topRoutes.map((r) => ({
         origin: r._id.o,
         destination: r._id.d,
         count: r.count,
       })),
       recentShipments,
+      /** Table-friendly rows: id, customer, agent, route, cargoType, status, imageUrls, … */
+      recentShipmentsView: recentRows,
       shipmentsByStatus: shipmentsByStatus.map((s) => ({
         status: s._id,
         count: s.count,
       })),
     };
+  }
+
+  /** @deprecated Use `getAdminDashboard` / `GET /admin/dashboard` — same response. */
+  async getAnalytics() {
+    return this.getAdminDashboard();
   }
 
   sendShipmentInvoice(id: string, dto: SendInvoiceDto) {

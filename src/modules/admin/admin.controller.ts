@@ -163,7 +163,21 @@ export class AdminController {
     return this.adminService.updateShipmentAdmin(id, dto);
   }
 
+  @Get('dashboard')
+  @ApiOperation({
+    summary: 'Full admin dashboard (single payload for Overview)',
+    description:
+      'KPIs (shipments, agents, shippers, delivered, pending, revenue, shipmentStats), ' +
+      'shipments over time, quote activity (doughnut), user registrations (monthly + by weekday), ' +
+      'top trade routes, raw `recentShipments` + table-shaped `recentShipmentsView` (incl. imageUrls). ' +
+      'Same data as `GET /admin/analytics` — prefer this route for the UI.',
+  })
+  getDashboard() {
+    return this.adminService.getAdminDashboard();
+  }
+
   @Get('analytics')
+  @ApiOperation({ summary: 'Same as GET /admin/dashboard (legacy alias)' })
   getAnalytics() {
     return this.adminService.getAnalytics();
   }
