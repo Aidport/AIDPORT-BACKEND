@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Aidport API",
-    "description": "Aidport NestJS API - Auth: login sets httpOnly JWT cookie `access_token` (same token as JSON body); Bearer still works. Users must verify email (OTP) before login unless admin. **User state** `userState`: `active` | `blocked` | `suspended` | `pending` — new agents start `pending`; admin `PATCH /admin/users/:id` with `{ \"userState\": \"active\" }` to approve. Agent signup: POST /auth/signup/agent then PATCH /agent/profile (optional `contraPrice`, `businessAccountNumber`). `transportModes`: `sea_cargo` | `air_cargo` | `freight_forwarder` | `clearing_and_forwarding`. `PATCH /agent/plan` updates `pricingPlan` only (`basic` | `premium`). Public GET /agents. Shipments: optional `senderEmail` / `receiverEmail` on create & request. Admin: `POST .../send-invoice` may include `receiverName` / `receiverEmail`. Admin list users/agents: `uploadedFileUrls` on response. Admin list shipments: populated `requestedAgentId`, `assignedAgentId`, `acceptedBy` with `agentProfile`. Upload: public `GET /upload/stream?url=`. See collection variables.",
+    "description": "Aidport NestJS API — import this file + `Aidport.local.postman_environment.json` (or set `baseUrl` / `accessToken`).\n\n**Admin overview:** `GET /admin/dashboard` (same body as `GET /admin/analytics`) — single payload: KPIs, `shipmentStats`, charts, `quoteRequestActivity`, `recentShipmentsView`, `registrationsByWeekday`.\n\nAuth: login sets httpOnly JWT `access_token`; Bearer `{{accessToken}}` on this collection. Verify email (OTP) before login unless admin. **userState:** `active` | `blocked` | `suspended` | `pending`. Admin `PATCH /admin/users/:id` `{ \"userState\": \"active\" }` to approve agents. Upload: `shipperFileUrls` / `adminFileUrls` / `agentProfile.documentUrls`. See variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -311,7 +311,7 @@
       "item": [
         {
           "name": "List Users",
-          "description": "For `role=agent`, each item includes `uploadedFileUrls` (same as `agentProfile.documentUrls`). Shippers in list have `uploadedFileUrls: []` — use Get User by id for shipper file URLs from shipments.",
+          "description": "Each row includes `uploadedFileUrls` and `shipmentStats`. Agents: doc URLs; shippers: `shipperFileUrls` + shipment `imageUrls`; admins: `adminFileUrls`.",
           "request": { "method": "GET", "url": "{{baseUrl}}/admin/users?page=1&limit=10&role=user&search=&country=" },
           "response": [{
             "name": "200 OK",
@@ -363,7 +363,21 @@
           }]
         },
         {
-          "name": "Analytics",
+          "name": "Dashboard (full overview)",
+          "description": "Use this for the admin home: one response with `overview` (incl. `delivered`, `shipmentStats`), `quoteRequestActivity` (pending/approved/declined/accepted), `shipmentsOverTime`, `newUserRegistrations`, `registrationsByWeekday`, `topTradeRoutes`, `recentShipments`, `recentShipmentsView` (table-ready + `imageUrls`), `shipmentsByStatus`, `generatedAt`.",
+          "request": { "method": "GET", "url": "{{baseUrl}}/admin/dashboard" },
+          "response": [{
+            "name": "200 OK",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\n  \"generatedAt\": \"2026-01-15T12:00:00.000Z\",\n  \"overview\": {\n    \"totalShipments\": 120,\n    \"totalAgents\": 10,\n    \"totalShippers\": 50,\n    \"totalRevenue\": 500000,\n    \"delivered\": 80,\n    \"pendingShipments\": 15,\n    \"deliveredShipments\": 80,\n    \"recentShipmentsCount\": 12,\n    \"shipmentStats\": { \"pending\": 10, \"cancelled\": 2, \"delivered\": 80, \"in_transit\": 5 }\n  },\n  \"quoteActivity\": { \"pending\": 3, \"approved\": 10, \"rejected\": 1, \"accepted\": 2 },\n  \"quoteRequestActivity\": { \"pending\": 3, \"approved\": 10, \"declined\": 1, \"accepted\": 2 },\n  \"shipmentsOverTime\": [{ \"month\": \"2026-01\", \"count\": 20 }],\n  \"newUserRegistrations\": [{ \"month\": \"2026-01\", \"count\": 5 }],\n  \"registrationsByWeekday\": [\n    { \"weekday\": \"Mon\", \"isoDayOfWeek\": 1, \"count\": 2 },\n    { \"weekday\": \"Tue\", \"isoDayOfWeek\": 2, \"count\": 0 }\n  ],\n  \"topTradeRoutes\": [{ \"origin\": \"Lagos\", \"destination\": \"Abuja\", \"count\": 30 }],\n  \"recentShipments\": [],\n  \"recentShipmentsView\": [],\n  \"shipmentsByStatus\": [{ \"status\": \"pending\", \"count\": 15 }]\n}"
+          }]
+        },
+        {
+          "name": "Analytics (legacy alias)",
+          "description": "Same JSON as **Dashboard (full overview)** — prefer `GET /admin/dashboard`.",
           "request": { "method": "GET", "url": "{{baseUrl}}/admin/analytics" },
           "response": [{
             "name": "200 OK",

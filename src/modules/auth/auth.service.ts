@@ -3,8 +3,8 @@ import {
   Logger,
   UnauthorizedException,
   BadRequestException,
-  NotFoundException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
@@ -37,6 +37,23 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
+  /** Logs transport errors (`[email]` prefix) and throws HTTP 503. Login notification is excluded — it logs only so login still succeeds. */
+  private async requireEmailSent<T>(
+    send: () => Promise<T>,
+    logContext: string,
+    clientMessage: string,
+  ): Promise<T> {
+    try {
+      return await send();
+    } catch (err) {
+      this.logger.error(
+        `[email] ${logContext}: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      throw new ServiceUnavailableException(clientMessage);
+    }
+  }
+
   async signUp(createUserDto: CreateUserDto, role: Role = Role.User): Promise<{ user: UserResponse } & { accessToken: string; expiresIn: string }> {
     const user = (await this.userService.create(createUserDto, role)) as UserResponse;
     const token = this.generateToken(user.id, user.role);
@@ -44,13 +61,12 @@ export class AuthService {
       const otp = randomBytes(4).toString('hex').toUpperCase();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
-      try {
-        await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup');
-      } catch (err) {
-        this.logger.warn(
-          `Signup verification email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+      await this.requireEmailSent(
+        () =>
+          this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup'),
+        `Signup verification email failed for ${user.email}`,
+        'Unable to send verification email. Please try again or use resend verification.',
+      );
     }
     return { user, ...token };
   }
@@ -62,13 +78,12 @@ export class AuthService {
       const otp = randomBytes(4).toString('hex').toUpperCase();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
-      try {
-        await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup');
-      } catch (err) {
-        this.logger.warn(
-          `Agent signup verification email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+      await this.requireEmailSent(
+        () =>
+          this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup'),
+        `Agent signup verification email failed for ${user.email}`,
+        'Unable to send verification email. Please try again or use resend verification.',
+      );
     }
     return { user, ...token };
   }
@@ -110,15 +125,16 @@ export class AuthService {
     const token = this.generateToken(userResponse.id, userResponse.role);
     if (this.emailService.isConfigured()) {
       const loggedInAtIso = new Date().toISOString();
-      this.emailService
+      void this.emailService
         .sendLoginNotificationEmail(user.email, user.name, {
           loggedInAtIso,
           ip: clientMeta?.ip,
           userAgent: clientMeta?.userAgent,
         })
         .catch((err) => {
-          this.logger.warn(
-            `Login notification email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+          this.logger.error(
+            `[email] login_notification failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+            err instanceof Error ? err.stack : undefined,
           );
         });
     }
@@ -149,18 +165,17 @@ export class AuthService {
       token,
       expiresAt,
     );
-    try {
-      await this.emailService.sendPasswordResetEmail(
-        user.email,
-        user.name,
-        String(user._id),
-        token,
-      );
-    } catch (err) {
-      this.logger.warn(
-        `Password reset email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    await this.requireEmailSent(
+      () =>
+        this.emailService.sendPasswordResetEmail(
+          user.email,
+          user.name,
+          String(user._id),
+          token,
+        ),
+      `Password reset email failed for ${user.email}`,
+      'Unable to send password reset email. Please try again later.',
+    );
     return { message: 'If the email exists, a reset link has been sent.' };
   }
 
@@ -192,8 +207,9 @@ export class AuthService {
       try {
         await this.emailService.sendPasswordChangedEmail(user.email, user.name);
       } catch (err) {
-        this.logger.warn(
-          `Password changed email failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+        this.logger.error(
+          `[email] password_changed_notify failed for ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+          err instanceof Error ? err.stack : undefined,
         );
       }
     }
@@ -230,13 +246,12 @@ export class AuthService {
       otp,
       expiresAt,
     );
-    try {
-      await this.emailService.sendVerificationEmail(user.email, user.name, otp, 'repeat');
-    } catch (err) {
-      this.logger.warn(
-        `Verification code email failed for ${dto.email}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    await this.requireEmailSent(
+      () =>
+        this.emailService.sendVerificationEmail(user.email, user.name, otp, 'repeat'),
+      `Verification code email failed for ${dto.email}`,
+      'Unable to send verification code. Please try again later.',
+    );
     return { message: 'If the email exists, a verification code has been sent.' };
   }
 

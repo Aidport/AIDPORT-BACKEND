@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -112,6 +113,13 @@ describe('AuthService', () => {
       expect(userService.setEmailVerificationToken).toHaveBeenCalled();
       expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
+
+    it('should reject when verification email fails to send', async () => {
+      jest.spyOn(emailService, 'sendVerificationEmail').mockRejectedValue(new Error('SMTP down'));
+      await expect(service.signUp({ name: 'Test', email: 'test@example.com', password: 'pass123' })).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
   });
 
   describe('signUpAgent', () => {
@@ -124,6 +132,13 @@ describe('AuthService', () => {
       expect(userService.setEmailVerificationToken).toHaveBeenCalled();
       expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
+
+    it('should reject when verification email fails to send', async () => {
+      jest.spyOn(emailService, 'sendVerificationEmail').mockRejectedValue(new Error('SMTP down'));
+      await expect(service.signUpAgent({ name: 'Agent', email: 'agent@example.com', password: 'pass123' })).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
   });
 
   describe('login', () => {
@@ -135,6 +150,17 @@ describe('AuthService', () => {
       });
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('user');
+      expect(emailService.sendLoginNotificationEmail).toHaveBeenCalled();
+    });
+
+    it('should still login when notification email fails (failure is logged only)', async () => {
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(mockUserDocument as any);
+      jest.spyOn(emailService, 'sendLoginNotificationEmail').mockRejectedValue(new Error('SMTP down'));
+      const result = await service.login({
+        email: 'test@example.com',
+        password: 'correct',
+      });
+      expect(result).toHaveProperty('accessToken');
       expect(emailService.sendLoginNotificationEmail).toHaveBeenCalled();
     });
 
@@ -193,6 +219,14 @@ describe('AuthService', () => {
       expect(result.message).toContain('If the email exists');
       expect(userService.setPasswordResetToken).toHaveBeenCalled();
       expect(emailService.sendPasswordResetEmail).toHaveBeenCalled();
+    });
+
+    it('should reject when reset email fails to send', async () => {
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(mockUserDocument as any);
+      jest.spyOn(emailService, 'sendPasswordResetEmail').mockRejectedValue(new Error('SMTP down'));
+      await expect(service.forgotPassword({ email: 'test@example.com' })).rejects.toThrow(
+        ServiceUnavailableException,
+      );
     });
 
     it('should throw when email not configured', async () => {
@@ -284,6 +318,17 @@ describe('AuthService', () => {
       expect(result.message).toContain('If the email exists');
       expect(userService.setEmailVerificationToken).toHaveBeenCalled();
       expect(emailService.sendVerificationEmail).toHaveBeenCalled();
+    });
+
+    it('should reject when verification email fails to send', async () => {
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue({
+        ...mockUserDocument,
+        isEmailVerified: false,
+      } as any);
+      jest.spyOn(emailService, 'sendVerificationEmail').mockRejectedValue(new Error('SMTP down'));
+      await expect(service.requestVerificationCode({ email: 'test@example.com' })).rejects.toThrow(
+        ServiceUnavailableException,
+      );
     });
   });
 });

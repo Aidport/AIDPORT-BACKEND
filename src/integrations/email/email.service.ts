@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as dns from 'node:dns/promises';
 import * as net from 'node:net';
@@ -25,13 +25,99 @@ import {
 } from './templates';
 
 @Injectable()
-export class EmailService {
+export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
   private passwordSmtpTransporter: Transporter | null = null;
   private passwordSmtpInitPromise: Promise<Transporter> | null = null;
   private gmailOAuth2Client: OAuth2Client | null = null;
+  private loggedTransportChoice = false;
 
   constructor(private configService: ConfigService) {}
+
+  async onModuleInit(): Promise<void> {
+    if (!this.isConfigured()) {
+      this.logger.warn(
+        'Email not configured: use full Gmail OAuth set or SMTP_USER + SMTP_PASS. If OAuth broke but SMTP works, set EMAIL_TRANSPORT=smtp.',
+      );
+      return;
+    }
+    const transport = this.resolveTransport();
+    this.logTransportChoice(transport);
+    const skip =
+      String(this.configService.get<string>('EMAIL_VERIFY_ON_BOOT') ?? '').toLowerCase() ===
+      'false';
+    if (skip) {
+      return;
+    }
+    try {
+      if (transport === 'oauth') {
+        const cfg = this.getGmailOAuthConfig();
+        if (!cfg) {
+          throw new Error('OAuth transport selected but config is incomplete');
+        }
+        const client = createGmailOAuth2Client(cfg);
+        await client.getAccessToken();
+      } else {
+        const t = await this.getPasswordSmtpTransporter();
+        await t.verify();
+      }
+      this.logger.log(`Email transport verified (${transport}).`);
+    } catch (e) {
+      this.logger.error(
+        `Email transport verification FAILED (${transport}): ${e instanceof Error ? e.message : String(e)}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * `auto` (default): OAuth if all Gmail OAuth vars are set, else SMTP.
+   * `smtp`: force app-password SMTP even when OAuth vars exist (fixes stale OAuth).
+   * `oauth`: require Gmail OAuth only.
+   */
+  private emailTransportMode(): 'auto' | 'smtp' | 'oauth' {
+    const raw = this.configService.get<string>('EMAIL_TRANSPORT')?.trim().toLowerCase();
+    if (raw === 'smtp' || raw === 'password' || raw === 'app_password') {
+      return 'smtp';
+    }
+    if (raw === 'oauth' || raw === 'gmail_oauth' || raw === 'gmail-oauth') {
+      return 'oauth';
+    }
+    return 'auto';
+  }
+
+  /** Which backend will send mail; `null` if misconfigured for forced oauth mode. */
+  private resolveTransport(): 'oauth' | 'smtp' | null {
+    const mode = this.emailTransportMode();
+    const oauthReady = this.getGmailOAuthConfig() !== null;
+    const smtpReady = !!(this.cfgTrim('SMTP_USER') && this.cfgTrim('SMTP_PASS'));
+    if (mode === 'smtp') {
+      return smtpReady ? 'smtp' : null;
+    }
+    if (mode === 'oauth') {
+      return oauthReady ? 'oauth' : null;
+    }
+    if (oauthReady) {
+      return 'oauth';
+    }
+    return smtpReady ? 'smtp' : null;
+  }
+
+  private logTransportChoice(transport: 'oauth' | 'smtp' | null): void {
+    if (this.loggedTransportChoice || !transport) {
+      return;
+    }
+    this.loggedTransportChoice = true;
+    const mode = this.emailTransportMode();
+    this.logger.log(
+      `Email sends via ${transport}${mode !== 'auto' ? ` (EMAIL_TRANSPORT=${mode})` : ''}`,
+    );
+    if (mode === 'auto' && this.getGmailOAuthConfig() && this.cfgTrim('SMTP_USER')) {
+      this.logger.warn(
+        'Both Gmail OAuth and SMTP are set; OAuth is used. Set EMAIL_TRANSPORT=smtp to force SMTP.',
+      );
+    }
+  }
 
   /** Supports both `GMAIL_*` and common `.env` aliases (`CLIENT_ID`, `REFRESH_TOKEN`, …). */
   private cfgTrim(...keys: string[]): string | undefined {
@@ -118,10 +204,6 @@ export class EmailService {
     };
   }
 
-  private usesGmailOAuth(): boolean {
-    return this.getGmailOAuthConfig() !== null;
-  }
-
   private getGmailOAuth2Client(): OAuth2Client {
     if (!this.gmailOAuth2Client) {
       const cfg = this.getGmailOAuthConfig();
@@ -170,7 +252,14 @@ export class EmailService {
     text?: string;
     html?: string;
   }): Promise<void> {
-    if (this.usesGmailOAuth()) {
+    const transport = this.resolveTransport();
+    if (!transport) {
+      throw new Error(
+        'Email not configured: set SMTP_USER + SMTP_PASS, or full Gmail OAuth vars, or fix EMAIL_TRANSPORT.',
+      );
+    }
+    this.logTransportChoice(transport);
+    if (transport === 'oauth') {
       await this.sendViaGmailOAuth(options);
       return;
     }
@@ -186,10 +275,7 @@ export class EmailService {
   }
 
   isConfigured(): boolean {
-    if (this.usesGmailOAuth()) {
-      return true;
-    }
-    return !!(this.cfgTrim('SMTP_USER') && this.cfgTrim('SMTP_PASS'));
+    return this.resolveTransport() !== null;
   }
 
   async sendVerificationEmail(

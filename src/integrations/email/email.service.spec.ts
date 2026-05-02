@@ -68,5 +68,24 @@ describe('EmailService', () => {
       const s = module.get<EmailService>(EmailService);
       expect(s.isConfigured()).toBe(true);
     });
+
+    it('should stay configured with SMTP when EMAIL_TRANSPORT=smtp even if OAuth vars are present', async () => {
+      const module = await createModuleWithEnv({
+        EMAIL_TRANSPORT: 'smtp',
+        GMAIL_CLIENT_ID: 'id.apps.googleusercontent.com',
+        GMAIL_CLIENT_SECRET: 'secret',
+        GMAIL_REDIRECT_URI: 'https://developers.google.com/oauthplayground',
+        GMAIL_REFRESH_TOKEN: '1//token',
+        GMAIL_USER: 'user@gmail.com',
+        SMTP_HOST: 'smtp.gmail.com',
+        SMTP_PORT: 587,
+        SMTP_SECURE: false,
+        SMTP_USER: 'test@gmail.com',
+        SMTP_PASS: 'app-password',
+        SMTP_FROM: 'noreply@aidport.com',
+      });
+      const s = module.get<EmailService>(EmailService);
+      expect(s.isConfigured()).toBe(true);
+    });
   });
 });
