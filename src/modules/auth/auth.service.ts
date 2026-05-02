@@ -37,7 +37,27 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  /** Logs transport errors (`[email]` prefix) and throws HTTP 503. Login notification is excluded — it logs only so login still succeeds. */
+  /**
+   * Signup/agent signup persists OTP first; verification mail is best-effort so signup still returns 200 when
+   * mail fails (logs `[email]`; user can hit resend). Forgot-password / resend-code still use `requireEmailSent`.
+   */
+  private async sendSignupVerificationMailBestEffort(
+    email: string,
+    name: string,
+    otp: string,
+    logContext: string,
+  ): Promise<void> {
+    try {
+      await this.emailService.sendVerificationEmail(email, name, otp, 'signup');
+    } catch (err) {
+      this.logger.error(
+        `[email] ${logContext} failed for ${email}: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+    }
+  }
+
+  /** Logs transport errors (`[email]` prefix) and throws HTTP 503 when mail must succeed for the response to be honest. */
   private async requireEmailSent<T>(
     send: () => Promise<T>,
     logContext: string,
@@ -61,11 +81,11 @@ export class AuthService {
       const otp = randomBytes(4).toString('hex').toUpperCase();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
-      await this.requireEmailSent(
-        () =>
-          this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup'),
-        `Signup verification email failed for ${user.email}`,
-        'Unable to send verification email. Please try again or use resend verification.',
+      await this.sendSignupVerificationMailBestEffort(
+        user.email,
+        user.name,
+        otp,
+        'signup_verification',
       );
     }
     return { user, ...token };
@@ -78,11 +98,11 @@ export class AuthService {
       const otp = randomBytes(4).toString('hex').toUpperCase();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await this.userService.setEmailVerificationToken(user.id, otp, expiresAt);
-      await this.requireEmailSent(
-        () =>
-          this.emailService.sendVerificationEmail(user.email, user.name, otp, 'signup'),
-        `Agent signup verification email failed for ${user.email}`,
-        'Unable to send verification email. Please try again or use resend verification.',
+      await this.sendSignupVerificationMailBestEffort(
+        user.email,
+        user.name,
+        otp,
+        'agent_signup_verification',
       );
     }
     return { user, ...token };

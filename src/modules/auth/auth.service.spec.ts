@@ -114,11 +114,12 @@ describe('AuthService', () => {
       expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
 
-    it('should reject when verification email fails to send', async () => {
+    it('should still register when verification email fails (logged only; OTP stored for resend)', async () => {
       jest.spyOn(emailService, 'sendVerificationEmail').mockRejectedValue(new Error('SMTP down'));
-      await expect(service.signUp({ name: 'Test', email: 'test@example.com', password: 'pass123' })).rejects.toThrow(
-        ServiceUnavailableException,
-      );
+      const result = await service.signUp({ name: 'Test', email: 'test@example.com', password: 'pass123' });
+      expect(result).toHaveProperty('accessToken');
+      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
+      expect(userService.setEmailVerificationToken).toHaveBeenCalled();
     });
   });
 
@@ -133,11 +134,12 @@ describe('AuthService', () => {
       expect(emailService.sendVerificationEmail).toHaveBeenCalled();
     });
 
-    it('should reject when verification email fails to send', async () => {
+    it('should still register when verification email fails (logged only; OTP stored for resend)', async () => {
       jest.spyOn(emailService, 'sendVerificationEmail').mockRejectedValue(new Error('SMTP down'));
-      await expect(service.signUpAgent({ name: 'Agent', email: 'agent@example.com', password: 'pass123' })).rejects.toThrow(
-        ServiceUnavailableException,
-      );
+      const result = await service.signUpAgent({ name: 'Agent', email: 'agent@example.com', password: 'pass123' });
+      expect(result).toHaveProperty('accessToken');
+      expect(emailService.sendVerificationEmail).toHaveBeenCalled();
+      expect(userService.setEmailVerificationToken).toHaveBeenCalled();
     });
   });
 
